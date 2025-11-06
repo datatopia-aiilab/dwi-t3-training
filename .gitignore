@@ -1,0 +1,117 @@
+# ========================================
+# DWI Segmentation Project - .gitignore
+# เก็บเฉพาะไฟล์ code ไม่เก็บ data, models, results
+# ========================================
+
+# ============ Data Directories ============
+# ห้ามเก็บข้อมูลทุกประเภท
+1_data_raw/
+2_data_processed/
+data/
+datasets/
+
+# ============ Model Weights ============
+# ห้ามเก็บ trained models (ไฟล์ใหญ่มาก)
+3_model_weights/
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+*.pickle
+
+# ============ Results & Outputs ============
+# ห้ามเก็บผลลัพธ์และภาพ
+4_results/
+results/
+outputs/
+predictions/
+visualizations/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+
+# ============ Logs & Checkpoints ============
+logs/
+checkpoints/
+*.log
+training_history.json
+evaluation_results.json
+
+# ============ Python Cache ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ============ Jupyter Notebooks ============
+.ipynb_checkpoints
+*.ipynb
+
+# ============ Virtual Environments ============
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+dwi-nov/
+.conda/
+
+# ============ IDE & Editor ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============ OS Generated ============
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# ============ Temporary Files ============
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# ============ แต่เก็บไฟล์ code เหล่านี้ ============
+# Python scripts
+!*.py
+
+# Configuration files
+!requirements.txt
+!.gitignore
+
+# Documentation
+!*.md
+!README.md
+!LICENSE
+
+# Keep directory structure (empty placeholder files)
+!.gitkeep
