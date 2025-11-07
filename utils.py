@@ -377,15 +377,35 @@ def save_training_history(history, filepath):
     """
     filepath = Path(filepath)
     
-    # Convert numpy arrays to lists for JSON serialization
+    # Convert numpy arrays and handle NaN/inf values for JSON serialization
     history_serializable = {}
     for key, value in history.items():
         if isinstance(value, np.ndarray):
-            history_serializable[key] = value.tolist()
+            # Convert to list and handle NaN/inf
+            value_list = value.tolist()
+            value_list = [float(v) if not (np.isnan(v) or np.isinf(v)) else None for v in value_list]
+            history_serializable[key] = value_list
         elif isinstance(value, list):
-            history_serializable[key] = value
+            # Handle NaN/inf in lists
+            value_list = []
+            for v in value:
+                if isinstance(v, (np.floating, float)):
+                    if np.isnan(v) or np.isinf(v):
+                        value_list.append(None)
+                    else:
+                        value_list.append(float(v))
+                else:
+                    value_list.append(v)
+            history_serializable[key] = value_list
         else:
-            history_serializable[key] = float(value)
+            # Handle single values
+            if isinstance(value, (np.floating, float)):
+                if np.isnan(value) or np.isinf(value):
+                    history_serializable[key] = None
+                else:
+                    history_serializable[key] = float(value)
+            else:
+                history_serializable[key] = value
     
     with open(filepath, 'w') as f:
         json.dump(history_serializable, f, indent=4)
