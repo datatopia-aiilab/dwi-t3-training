@@ -51,8 +51,8 @@ PATIENT_PATTERN = r'Patient_(\d+)_Slice_(\d+)'  # Regex pattern for parsing file
 
 # ==================== Preprocessing Parameters ====================
 # CLAHE (Contrast Limited Adaptive Histogram Equalization)
-CLAHE_ENABLED = False
-CLAHE_CLIP_LIMIT = 0.03  # จำกัดการเพิ่ม contrast (ค่าต่ำ = อ่อนโยน, ค่าสูง = แรง)
+CLAHE_ENABLED = True  # ⬆️ เปิดใช้ CLAHE เพื่อเพิ่ม contrast ของ lesion ที่จางๆ
+CLAHE_CLIP_LIMIT = 0.01  # จำกัดการเพิ่ม contrast (ค่าต่ำ = อ่อนโยน, ค่าสูง = แรง)
 CLAHE_KERNEL_SIZE = None  # None = auto-calculate based on image size
 
 # Normalization
@@ -78,7 +78,7 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates
 
 # ==================== Training Parameters ====================
 # Basic training settings
-NUM_EPOCHS = 200
+NUM_EPOCHS = 300  # ⬆️ เพิ่มจาก 200 เพื่อให้มีเวลาเรียนรู้มากขึ้นกับ augmentation
 BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
@@ -105,7 +105,7 @@ COMBO_FOCAL_WEIGHT = 0.3  # ⬇️ ลดน้ำหนัก Focal Loss (ม�
 COMBO_DICE_WEIGHT = 0.7   # ⬆️ เพิ่มน้ำหนัก Dice Loss (เสถียรกว่า)
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 25  # หยุดถ้า val dice ไม่ดีขึ้นเป็นเวลา 25 epochs
+EARLY_STOPPING_PATIENCE = 35  # ⬆️ เพิ่มจาก 25 เพื่อให้มีโอกาสเรียนรู้จาก augmentation มากขึ้น
 EARLY_STOPPING_MIN_DELTA = 1e-4  # การเปลี่ยนแปลงขั้นต่ำที่ถือว่า "ดีขึ้น"
 
 # Checkpointing
@@ -114,7 +114,7 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = False
+AUGMENTATION_ENABLED = True  # ⬆️ เปิดใช้งาน augmentation เพื่อเพิ่ม generalization
 
 # Augmentation probabilities (0.0 = ไม่ใช้, 1.0 = ใช้ทุกครั้ง)
 AUG_HORIZONTAL_FLIP_PROB = 0.5
