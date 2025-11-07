@@ -38,8 +38,8 @@ def load_best_model(model_path, device):
     """
     print(f"\n📂 Loading model from: {model_path}")
     
-    # Load checkpoint
-    checkpoint = torch.load(model_path, map_location=device)
+    # Load checkpoint (weights_only=False for PyTorch 2.6+)
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     
     # Create model
     model = get_attention_unet(config)
