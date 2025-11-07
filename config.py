@@ -51,8 +51,8 @@ PATIENT_PATTERN = r'Patient_(\d+)_Slice_(\d+)'  # Regex pattern for parsing file
 
 # ==================== Preprocessing Parameters ====================
 # CLAHE (Contrast Limited Adaptive Histogram Equalization)
-CLAHE_ENABLED = True  # ⬆️ เปิดใช้ CLAHE เพื่อเพิ่ม contrast ของ lesion ที่จางๆ
-CLAHE_CLIP_LIMIT = 0.01  # จำกัดการเพิ่ม contrast (ค่าต่ำ = อ่อนโยน, ค่าสูง = แรง)
+CLAHE_ENABLED = False  # ⬇️ ปิด CLAHE เพราะทำให้ผลแย่ลง (55% vs 72%)
+CLAHE_CLIP_LIMIT = 0.03  # จำกัดการเพิ่ม contrast (ค่าต่ำ = อ่อนโยน, ค่าสูง = แรง)
 CLAHE_KERNEL_SIZE = None  # None = auto-calculate based on image size
 
 # Normalization
@@ -114,23 +114,23 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = True  # ⬆️ เปิดใช้งาน augmentation เพื่อเพิ่ม generalization
+AUGMENTATION_ENABLED = True  # เปิดใช้งาน augmentation แบบอ่อนโยน
 
-# Augmentation probabilities (0.0 = ไม่ใช้, 1.0 = ใช้ทุกครั้ง)
-AUG_HORIZONTAL_FLIP_PROB = 0.5
+# Augmentation probabilities (ลดความเข้มลงเพื่อให้ model เรียนรู้ง่ายขึ้น)
+AUG_HORIZONTAL_FLIP_PROB = 0.3  # ⬇️ ลดจาก 0.5
 AUG_VERTICAL_FLIP_PROB = 0.0  # ไม่แนะนำสำหรับ medical images
-AUG_ROTATE_PROB = 0.3
-AUG_ROTATE_LIMIT = 15  # หมุนได้สูงสุด ±15 องศา
+AUG_ROTATE_PROB = 0.2  # ⬇️ ลดจาก 0.3
+AUG_ROTATE_LIMIT = 10  # ⬇️ ลดจาก 15 องศา
 
-AUG_ELASTIC_TRANSFORM_PROB = 0.4  # สำคัญมาก! จำลองการบิดเบี้ยวของเนื้อเยื่อ
+AUG_ELASTIC_TRANSFORM_PROB = 0.2  # ⬇️ ลดจาก 0.4 (อาจทำให้ยากเกินไป)
 AUG_ELASTIC_ALPHA = 1.0
 AUG_ELASTIC_SIGMA = 50.0
 
-AUG_BRIGHTNESS_CONTRAST_PROB = 0.3
+AUG_BRIGHTNESS_CONTRAST_PROB = 0.2  # ⬇️ ลดจาก 0.3
 AUG_BRIGHTNESS_LIMIT = 0.1
 AUG_CONTRAST_LIMIT = 0.1
 
-AUG_GAUSSIAN_NOISE_PROB = 0.2
+AUG_GAUSSIAN_NOISE_PROB = 0.1  # ⬇️ ลดจาก 0.2
 AUG_GAUSSIAN_NOISE_VAR = (10.0, 50.0)
 
 # ==================== Evaluation Parameters ====================
