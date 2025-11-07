@@ -261,9 +261,9 @@ def visualize_sample(image, mask, prediction=None, title="",
     แสดงภาพ original, ground truth, และ prediction (ถ้ามี)
     
     Args:
-        image: 2D image (H, W) หรือ (H, W, 3)
-        mask: Ground truth mask (H, W)
-        prediction: Predicted mask (H, W) - optional
+        image: 2D image (H, W) หรือ 2.5D (3, H, W) หรือ (H, W, 3)
+        mask: Ground truth mask (H, W) หรือ (1, H, W)
+        prediction: Predicted mask (H, W) หรือ (1, H, W) - optional
         title: str, หัวข้อของรูป
         alpha: float, ความโปร่งใสของ mask overlay
         gt_color: tuple, สี RGB สำหรับ ground truth (0.0-1.0)
@@ -272,9 +272,31 @@ def visualize_sample(image, mask, prediction=None, title="",
     Returns:
         fig: matplotlib figure
     """
-    # ถ้า image เป็น 3 channels (2.5D) ให้เอาแค่ channel กลาง
-    if len(image.shape) == 3 and image.shape[-1] == 3:
-        image = image[:, :, 1]  # Middle slice (N)
+    # จัดการ image shape
+    if len(image.shape) == 3:
+        # ถ้าเป็น (3, H, W) - PyTorch format
+        if image.shape[0] == 3:
+            image = image[1, :, :]  # Middle slice (N)
+        # ถ้าเป็น (H, W, 3) - numpy format
+        elif image.shape[-1] == 3:
+            image = image[:, :, 1]  # Middle slice (N)
+        # ถ้าเป็น (1, H, W)
+        elif image.shape[0] == 1:
+            image = image[0, :, :]
+    
+    # จัดการ mask shape
+    if len(mask.shape) == 3:
+        if mask.shape[0] == 1:
+            mask = mask[0, :, :]
+        elif mask.shape[-1] == 1:
+            mask = mask[:, :, 0]
+    
+    # จัดการ prediction shape
+    if prediction is not None and len(prediction.shape) == 3:
+        if prediction.shape[0] == 1:
+            prediction = prediction[0, :, :]
+        elif prediction.shape[-1] == 1:
+            prediction = prediction[:, :, 0]
     
     # Normalize image to 0-1 for display
     image_display = (image - image.min()) / (image.max() - image.min() + 1e-8)
