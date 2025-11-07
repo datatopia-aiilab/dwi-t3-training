@@ -194,8 +194,7 @@ def get_training_augmentation(config=None):
     
     # Gaussian Noise
     if config.AUG_GAUSSIAN_NOISE_PROB > 0:
-        transforms.append(A.GaussianNoise(
-            var_limit=config.AUG_GAUSSIAN_NOISE_VAR,
+        transforms.append(A.GaussNoise(
             p=config.AUG_GAUSSIAN_NOISE_PROB
         ))
     

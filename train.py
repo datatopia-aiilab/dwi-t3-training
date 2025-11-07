@@ -99,7 +99,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, scal
         
         # Mixed precision training
         if scaler is not None:
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 outputs = model(images)
                 loss = criterion(outputs, masks)
             
@@ -287,8 +287,7 @@ def train_model(cfg):
             mode='max',  # Maximize validation Dice
             factor=cfg.SCHEDULER_FACTOR,
             patience=cfg.SCHEDULER_PATIENCE,
-            min_lr=cfg.SCHEDULER_MIN_LR,
-            verbose=True
+            min_lr=cfg.SCHEDULER_MIN_LR
         )
         print(f"   Scheduler: ReduceLROnPlateau")
         print(f"   Patience: {cfg.SCHEDULER_PATIENCE} epochs")
@@ -315,7 +314,7 @@ def train_model(cfg):
     # Mixed precision training
     scaler = None
     if cfg.USE_MIXED_PRECISION and cfg.USE_CUDA:
-        scaler = torch.cuda.amp.GradScaler()
+        scaler = torch.amp.GradScaler('cuda')
         print(f"   Mixed precision: Enabled")
     
     # Training history
@@ -387,8 +386,7 @@ def train_model(cfg):
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_dice': val_metrics['dice'],
-                'val_loss': val_metrics['loss'],
-                'config': vars(cfg)
+                'val_loss': val_metrics['loss']
             }, best_model_path)
             
             print(f"  ✅ New best model! Val Dice: {val_metrics['dice']:.4f} (saved)")
@@ -435,8 +433,7 @@ def train_model(cfg):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'val_dice': val_metrics['dice'],
-        'val_loss': val_metrics['loss'],
-        'config': vars(cfg)
+        'val_loss': val_metrics['loss']
     }, final_model_path)
     print(f"Final model saved to: {final_model_path}")
     
