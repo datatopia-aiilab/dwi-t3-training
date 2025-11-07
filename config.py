@@ -31,7 +31,7 @@ PREDICTIONS_DIR = RESULTS_DIR / "predictions"
 
 # ==================== Data Parameters ====================
 # Image specifications
-IMAGE_SIZE = (256, 256)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
+IMAGE_SIZE = (512, 512)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
 ORIGINAL_SIZE = None  # จะถูกตรวจจับอัตโนมัติจากข้อมูล
 
 # Data split ratio
@@ -51,7 +51,7 @@ PATIENT_PATTERN = r'Patient_(\d+)_Slice_(\d+)'  # Regex pattern for parsing file
 
 # ==================== Preprocessing Parameters ====================
 # CLAHE (Contrast Limited Adaptive Histogram Equalization)
-CLAHE_ENABLED = True
+CLAHE_ENABLED = False
 CLAHE_CLIP_LIMIT = 0.03  # จำกัดการเพิ่ม contrast (ค่าต่ำ = อ่อนโยน, ค่าสูง = แรง)
 CLAHE_KERNEL_SIZE = None  # None = auto-calculate based on image size
 
@@ -78,8 +78,8 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates
 
 # ==================== Training Parameters ====================
 # Basic training settings
-NUM_EPOCHS = 100
-BATCH_SIZE = 8  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
+NUM_EPOCHS = 200
+BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
@@ -114,7 +114,7 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = True
+AUGMENTATION_ENABLED = False
 
 # Augmentation probabilities (0.0 = ไม่ใช้, 1.0 = ใช้ทุกครั้ง)
 AUG_HORIZONTAL_FLIP_PROB = 0.5
