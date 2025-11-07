@@ -31,7 +31,7 @@ PREDICTIONS_DIR = RESULTS_DIR / "predictions"
 
 # ==================== Data Parameters ====================
 # Image specifications
-IMAGE_SIZE = (512, 512)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
+IMAGE_SIZE = (256, 256)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
 ORIGINAL_SIZE = None  # จะถูกตรวจจับอัตโนมัติจากข้อมูล
 
 # Data split ratio
@@ -97,7 +97,7 @@ SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
 # Loss function
-LOSS_TYPE = 'combo'  # 'focal', 'dice', or 'combo'
+LOSS_TYPE = 'dice'  # 'focal', 'dice', or 'combo'
 FOCAL_ALPHA = 0.25  # Weight for positive class in Focal Loss
 FOCAL_GAMMA = 2.0   # Focusing parameter (ยิ่งสูง ยิ่งโฟกัสที่ hard examples)
 DICE_SMOOTH = 1e-6  # Smoothing factor for Dice Loss
@@ -105,7 +105,7 @@ COMBO_FOCAL_WEIGHT = 0.3  # ⬇️ ลดน้ำหนัก Focal Loss (ม�
 COMBO_DICE_WEIGHT = 0.7   # ⬆️ เพิ่มน้ำหนัก Dice Loss (เสถียรกว่า)
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 15  # หยุดถ้า val dice ไม่ดีขึ้นเป็นเวลา 15 epochs
+EARLY_STOPPING_PATIENCE = 25  # หยุดถ้า val dice ไม่ดีขึ้นเป็นเวลา 25 epochs
 EARLY_STOPPING_MIN_DELTA = 1e-4  # การเปลี่ยนแปลงขั้นต่ำที่ถือว่า "ดีขึ้น"
 
 # Checkpointing
