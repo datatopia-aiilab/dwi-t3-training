@@ -65,7 +65,7 @@ class EarlyStopping:
             return False
 
 
-def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, scaler=None):
+def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg, scaler=None):
     """
     Train for one epoch
     
@@ -76,6 +76,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, scal
         optimizer: Optimizer
         device: Device (cuda/cpu)
         epoch: Current epoch number
+        cfg: Configuration module
         scaler: GradScaler for mixed precision (optional)
     
     Returns:
@@ -104,6 +105,12 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, scal
                 loss = criterion(outputs, masks)
             
             scaler.scale(loss).backward()
+            
+            # Gradient clipping (ป้องกัน exploding gradients)
+            if hasattr(cfg, 'GRADIENT_CLIP_VALUE'):
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.GRADIENT_CLIP_VALUE)
+            
             scaler.step(optimizer)
             scaler.update()
         else:
@@ -111,6 +118,11 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, scal
             outputs = model(images)
             loss = criterion(outputs, masks)
             loss.backward()
+            
+            # Gradient clipping (ป้องกัน exploding gradients)
+            if hasattr(cfg, 'GRADIENT_CLIP_VALUE'):
+                torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.GRADIENT_CLIP_VALUE)
+            
             optimizer.step()
         
         # Calculate metrics
@@ -344,7 +356,7 @@ def train_model(cfg):
         
         # Train one epoch
         train_metrics = train_one_epoch(
-            model, train_loader, criterion, optimizer, device, epoch, scaler
+            model, train_loader, criterion, optimizer, device, epoch, cfg, scaler
         )
         
         # Validate

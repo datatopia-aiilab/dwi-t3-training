@@ -84,8 +84,11 @@ NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 3e-5  # ⬇️ ลดลงจาก 1e-4 เพื่อป้องกัน gradient explosion
 WEIGHT_DECAY = 1e-5  # L2 regularization
+
+# Gradient clipping (ป้องกัน exploding gradients)
+GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
 
 # Learning rate scheduler
 SCHEDULER = 'reduce_on_plateau'  # 'reduce_on_plateau' or 'cosine'
@@ -98,8 +101,8 @@ LOSS_TYPE = 'combo'  # 'focal', 'dice', or 'combo'
 FOCAL_ALPHA = 0.25  # Weight for positive class in Focal Loss
 FOCAL_GAMMA = 2.0   # Focusing parameter (ยิ่งสูง ยิ่งโฟกัสที่ hard examples)
 DICE_SMOOTH = 1e-6  # Smoothing factor for Dice Loss
-COMBO_FOCAL_WEIGHT = 0.5  # Weight for Focal Loss in Combo Loss
-COMBO_DICE_WEIGHT = 0.5   # Weight for Dice Loss in Combo Loss
+COMBO_FOCAL_WEIGHT = 0.3  # ⬇️ ลดน้ำหนัก Focal Loss (มักทำให้ไม่เสถียร)
+COMBO_DICE_WEIGHT = 0.7   # ⬆️ เพิ่มน้ำหนัก Dice Loss (เสถียรกว่า)
 
 # Early stopping
 EARLY_STOPPING_PATIENCE = 15  # หยุดถ้า val dice ไม่ดีขึ้นเป็นเวลา 15 epochs
