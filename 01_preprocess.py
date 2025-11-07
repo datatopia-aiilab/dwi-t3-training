@@ -70,6 +70,56 @@ def resize_image(image, target_size, is_mask=False):
     return resized
 
 
+def split_data_by_slice(slice_mapping, test_size=48, train_val_ratio=0.80, random_seed=42):
+    """
+    Split data into train/val/test sets by SLICE (not by patient)
+    
+    New splitting strategy:
+    - Test: Fixed number of slices (e.g., 48)
+    - Remaining slices split into Train/Val (e.g., 80%/20%)
+    
+    Args:
+        slice_mapping: Dictionary from build_slice_mapping()
+        test_size: Number of slices for test set
+        train_val_ratio: Ratio of train/(train+val) from remaining data
+        random_seed: Random seed for reproducibility
+    
+    Returns:
+        dict: {'train': [...], 'val': [...], 'test': [...]} with slice filenames
+    """
+    # Get all slice filenames
+    all_slices = list(slice_mapping.keys())
+    total_slices = len(all_slices)
+    
+    # Shuffle slices
+    random.seed(random_seed)
+    random.shuffle(all_slices)
+    
+    # Split: first test_size slices → test set
+    test_slices = all_slices[:test_size]
+    remaining_slices = all_slices[test_size:]
+    
+    # Split remaining into train/val
+    remaining_count = len(remaining_slices)
+    train_count = int(remaining_count * train_val_ratio)
+    
+    train_slices = remaining_slices[:train_count]
+    val_slices = remaining_slices[train_count:]
+    
+    print(f"\n📊 Data Split Summary (Slice-Based):")
+    print(f"   Total Slices: {total_slices}")
+    print(f"   Test:  {len(test_slices)} slices ({len(test_slices)/total_slices*100:.1f}%)")
+    print(f"   Train: {len(train_slices)} slices ({len(train_slices)/total_slices*100:.1f}%)")
+    print(f"   Val:   {len(val_slices)} slices ({len(val_slices)/total_slices*100:.1f}%)")
+    print(f"   Train+Val: {len(train_slices)+len(val_slices)} slices")
+    
+    return {
+        'train': train_slices,
+        'val': val_slices,
+        'test': test_slices
+    }
+
+
 def split_data_by_patient(slice_mapping, train_ratio=0.70, val_ratio=0.15, test_ratio=0.15, random_seed=42):
     """
     Split data into train/val/test sets by PATIENT (not by slice)
@@ -287,14 +337,13 @@ def main():
     print(f"   Avg Slices/Patient: {stats['avg_slices_per_patient']:.1f}")
     print(f"   Min/Max Slices: {stats['min_slices']}/{stats['max_slices']}")
     
-    # Step 3: Split data by patient
-    print("\n✂️  Step 3: Splitting data by patient...")
+    # Step 3: Split data by slice (NEW METHOD)
+    print("\n✂️  Step 3: Splitting data by slice...")
     
-    data_splits = split_data_by_patient(
+    data_splits = split_data_by_slice(
         slice_mapping,
-        train_ratio=config.TRAIN_RATIO,
-        val_ratio=config.VAL_RATIO,
-        test_ratio=config.TEST_RATIO,
+        test_size=config.TEST_SIZE,
+        train_val_ratio=config.TRAIN_VAL_SPLIT_RATIO,
         random_seed=config.RANDOM_SEED
     )
     
