@@ -34,15 +34,12 @@ PREDICTIONS_DIR = RESULTS_DIR / "predictions"
 IMAGE_SIZE = (256, 256)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
 ORIGINAL_SIZE = None  # จะถูกตรวจจับอัตโนมัติจากข้อมูล
 
-# Data split configuration (slice-based split)
-# Total: 848 slices → Test: 48, Train+Val: 800 (Train: 640, Val: 160)
-TEST_SIZE = 48  # Fixed number of test slices
-TRAIN_VAL_SPLIT_RATIO = 0.80  # 80% train, 20% val from remaining data
-
-# Legacy ratios (for reference only, not used in slice-based split)
-TRAIN_RATIO = 0.70
-VAL_RATIO = 0.15
-TEST_RATIO = 0.15
+# Data split ratio
+# Test: ตายตัว 48 slices (~5.66%)
+# ที่เหลือ 800: Train 80% (640) + Val 20% (160)
+TRAIN_RATIO = 0.80  # 80% ของ (total - test) = 640 slices
+VAL_RATIO = 0.20    # 20% ของ (total - test) = 160 slices  
+TEST_RATIO = 0.0566 # ตายตัว 48 slices (~5.66% ของ total)
 
 # Random seed for reproducibility
 RANDOM_SEED = 42
@@ -71,9 +68,9 @@ TRAIN_STD = None   # จะถูกคำนวณและบันทึก�
 IN_CHANNELS = 3  # 2.5D input: [N-1, N, N+1] slices
 
 # U-Net architecture
-ENCODER_CHANNELS = [96, 192, 384, 768]  # Channels ในแต่ละ layer ของ encoder
+ENCODER_CHANNELS = [64, 128, 256, 512]  # Channels ในแต่ละ layer ของ encoder
 DECODER_CHANNELS = [512, 256, 128, 64]  # Channels ในแต่ละ layer ของ decoder
-BOTTLENECK_CHANNELS = 1536  # Channels ที่จุดกึ่งกลาง (ลึกที่สุด)
+BOTTLENECK_CHANNELS = 1024  # Channels ที่จุดกึ่งกลาง (ลึกที่สุด)
 
 # Output
 OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
@@ -89,7 +86,7 @@ NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 5e-5  # ⬇️ ลดลงจาก 1e-4 เพื่อป้องกัน gradient explosion
+LEARNING_RATE = 3e-5  # ⬇️ ลดลงจาก 1e-4 เพื่อป้องกัน gradient explosion
 WEIGHT_DECAY = 1e-5  # L2 regularization
 
 # Gradient clipping (ป้องกัน exploding gradients)
@@ -102,7 +99,7 @@ SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
 # Loss function
-LOSS_TYPE = 'combo'  # 'focal', 'dice', or 'combo'
+LOSS_TYPE = 'dice'  # 'focal', 'dice', or 'combo'
 FOCAL_ALPHA = 0.25  # Weight for positive class in Focal Loss
 FOCAL_GAMMA = 2.0   # Focusing parameter (ยิ่งสูง ยิ่งโฟกัสที่ hard examples)
 DICE_SMOOTH = 1e-6  # Smoothing factor for Dice Loss
