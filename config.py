@@ -88,7 +88,7 @@ NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 5e-5  # ⬆️ เพิ่มเล็กน้อย (model เล็กลง → ใช้ LR สูงกว่าได้)
+LEARNING_RATE = 3e-5  # ⬇️ กลับไปใช้ค่าเดิมที่เสถียร (ไม่ใช้ 5e-5)
 WEIGHT_DECAY = 5e-5  # ⬆️ เพิ่ม regularization เพื่อลด overfitting
 
 # Gradient clipping (ป้องกัน exploding gradients)
@@ -101,7 +101,7 @@ SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
 # Loss function
-LOSS_TYPE = 'combo'  # ⬆️ เปลี่ยนเป็น combo เพราะ model เล็กลง มีเสถียรภาพมากขึ้น
+LOSS_TYPE = 'dice'  # ⬇️ กลับไปใช้ Dice (Combo ทำให้ NaN)
 FOCAL_ALPHA = 0.25  # Weight for positive class in Focal Loss
 FOCAL_GAMMA = 2.0   # Focusing parameter (ยิ่งสูง ยิ่งโฟกัสที่ hard examples)
 DICE_SMOOTH = 1e-6  # Smoothing factor for Dice Loss
