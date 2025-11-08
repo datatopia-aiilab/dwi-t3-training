@@ -67,10 +67,12 @@ TRAIN_STD = None   # จะถูกคำนวณและบันทึก�
 # Input
 IN_CHANNELS = 3  # 2.5D input: [N-1, N, N+1] slices
 
-# U-Net architecture
-ENCODER_CHANNELS = [64, 128, 256, 512]  # Channels ในแต่ละ layer ของ encoder
-DECODER_CHANNELS = [512, 256, 128, 64]  # Channels ในแต่ละ layer ของ decoder
-BOTTLENECK_CHANNELS = 1024  # Channels ที่จุดกึ่งกลาง (ลึกที่สุด)
+# U-Net architecture (ลดขนาดลง ~50% เพื่อลด overfitting)
+# Old: [64, 128, 256, 512] → 31M params
+# New: [32, 64, 128, 256] → ~7.8M params (เหมาะกับ dataset เล็ก)
+ENCODER_CHANNELS = [32, 64, 128, 256]  # ⬇️ ลดขนาดลง 50%
+DECODER_CHANNELS = [256, 128, 64, 32]  # ⬇️ ลดตาม encoder
+BOTTLENECK_CHANNELS = 512  # ⬇️ ลดจาก 1024
 
 # Output
 OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
@@ -80,14 +82,14 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates
 
 # ==================== Training Parameters ====================
 # Basic training settings
-NUM_EPOCHS = 300  # ⬆️ เพิ่มจาก 200 เพื่อให้มีเวลาเรียนรู้มากขึ้นกับ augmentation
+NUM_EPOCHS = 200  # ⬇️ ลดลง (model เล็กลงแล้ว converge เร็วขึ้น)
 BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 3e-5  # ⬇️ ลดลงจาก 1e-4 เพื่อป้องกัน gradient explosion
-WEIGHT_DECAY = 1e-5  # L2 regularization
+LEARNING_RATE = 5e-5  # ⬆️ เพิ่มเล็กน้อย (model เล็กลง → ใช้ LR สูงกว่าได้)
+WEIGHT_DECAY = 5e-5  # ⬆️ เพิ่ม regularization เพื่อลด overfitting
 
 # Gradient clipping (ป้องกัน exploding gradients)
 GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
@@ -99,12 +101,12 @@ SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
 # Loss function
-LOSS_TYPE = 'dice'  # 'focal', 'dice', or 'combo'
+LOSS_TYPE = 'combo'  # ⬆️ เปลี่ยนเป็น combo เพราะ model เล็กลง มีเสถียรภาพมากขึ้น
 FOCAL_ALPHA = 0.25  # Weight for positive class in Focal Loss
 FOCAL_GAMMA = 2.0   # Focusing parameter (ยิ่งสูง ยิ่งโฟกัสที่ hard examples)
 DICE_SMOOTH = 1e-6  # Smoothing factor for Dice Loss
-COMBO_FOCAL_WEIGHT = 0.3  # ⬇️ ลดน้ำหนัก Focal Loss (มักทำให้ไม่เสถียร)
-COMBO_DICE_WEIGHT = 0.7   # ⬆️ เพิ่มน้ำหนัก Dice Loss (เสถียรกว่า)
+COMBO_FOCAL_WEIGHT = 0.3  # น้ำหนัก Focal Loss (focus on hard examples)
+COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss (overall overlap)
 
 # Early stopping
 EARLY_STOPPING_PATIENCE = 35  # ⬆️ เพิ่มจาก 25 เพื่อให้มีโอกาสเรียนรู้จาก augmentation มากขึ้น
