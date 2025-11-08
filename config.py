@@ -83,21 +83,21 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates
 
 # ==================== Training Parameters ====================
 # Basic training settings
-NUM_EPOCHS = 200  # ⬇️ ลดลง (model เล็กลงแล้ว converge เร็วขึ้น)
+NUM_EPOCHS = 250  # ⬆️ เพิ่มจาก 200 → 250 (ให้เวลา augmentation ทำงานมากขึ้น)
 BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
 LEARNING_RATE = 5e-5  # ⬆️ ค่ากลางระหว่าง 3e-5 กับ 1e-4 (หวังว่าจะเสถียร)
-WEIGHT_DECAY = 1e-5  # ⬇️ ลด regularization penalty จาก 5e-5 → 1e-5 (ช่วยให้ loss ลดได้ดีขึ้น)
+WEIGHT_DECAY = 1e-4  # ⬆️ เพิ่ม regularization จาก 1e-5 → 1e-4 (ลด overfitting)
 
 # Gradient clipping (ป้องกัน exploding gradients)
 GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
 
 # Learning rate scheduler
 SCHEDULER = 'reduce_on_plateau'  # 'reduce_on_plateau' or 'cosine'
-SCHEDULER_PATIENCE = 10  # ⬆️ เพิ่มความอดทนมากขึ้น (จาก 5) เพื่อให้ loss มีเวลาลดลง
+SCHEDULER_PATIENCE = 8  # ⬇️ ลดจาก 10 → 8 (ลด LR เร็วขึ้นเมื่อติดขัด)
 SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
@@ -111,7 +111,7 @@ COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss
 
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 35  # ⬆️ เพิ่มจาก 25 เพื่อให้มีโอกาสเรียนรู้จาก augmentation มากขึ้น
+EARLY_STOPPING_PATIENCE = 40  # ⬆️ เพิ่มจาก 35 → 40 (อดทนมากขึ้นกับ augmentation)
 EARLY_STOPPING_MIN_DELTA = 1e-4  # การเปลี่ยนแปลงขั้นต่ำที่ถือว่า "ดีขึ้น"
 
 # Checkpointing
@@ -120,24 +120,24 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = False  # ⬇️ ปิด augmentation - ข้อมูลดิบให้ผลดีกว่า (72% vs 50%)
+AUGMENTATION_ENABLED = True  # ⬆️ เปิด augmentation แบบอ่อนโยนมาก (ไม่แรงเหมือนเดิม)
 
 # Augmentation probabilities (0.0 = ไม่ใช้, 1.0 = ใช้ทุกครั้ง)
-AUG_HORIZONTAL_FLIP_PROB = 0.5
+AUG_HORIZONTAL_FLIP_PROB = 0.3  # ⬇️ ลดจาก 0.5 → 0.3
 AUG_VERTICAL_FLIP_PROB = 0.0  # ไม่แนะนำสำหรับ medical images
-AUG_ROTATE_PROB = 0.3
-AUG_ROTATE_LIMIT = 15  # หมุนได้สูงสุด ±15 องศา
+AUG_ROTATE_PROB = 0.2  # ⬇️ ลดจาก 0.3 → 0.2
+AUG_ROTATE_LIMIT = 8  # ⬇️ หมุนได้สูงสุด ±8 องศา (จาก ±15)
 
-AUG_ELASTIC_TRANSFORM_PROB = 0.4  # สำคัญมาก! จำลองการบิดเบี้ยวของเนื้อเยื่อ
+AUG_ELASTIC_TRANSFORM_PROB = 0.0  # ⬇️ ปิดชั่วคราว (เดิม 0.4) - แรงเกินไป
 AUG_ELASTIC_ALPHA = 1.0
 AUG_ELASTIC_SIGMA = 50.0
 
-AUG_BRIGHTNESS_CONTRAST_PROB = 0.3
-AUG_BRIGHTNESS_LIMIT = 0.1
-AUG_CONTRAST_LIMIT = 0.1
+AUG_BRIGHTNESS_CONTRAST_PROB = 0.15  # ⬇️ ลดจาก 0.3 → 0.15
+AUG_BRIGHTNESS_LIMIT = 0.05  # ⬇️ ลดจาก 0.1 → 0.05
+AUG_CONTRAST_LIMIT = 0.05  # ⬇️ ลดจาก 0.1 → 0.05
 
-AUG_GAUSSIAN_NOISE_PROB = 0.2
-AUG_GAUSSIAN_NOISE_VAR = (10.0, 50.0)
+AUG_GAUSSIAN_NOISE_PROB = 0.1  # ⬇️ ลดจาก 0.2 → 0.1
+AUG_GAUSSIAN_NOISE_VAR = (5.0, 20.0)  # ⬇️ ลดจาก (10, 50) → (5, 20)
 
 # ==================== Evaluation Parameters ====================
 # Metrics
