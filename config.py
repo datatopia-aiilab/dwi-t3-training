@@ -89,25 +89,25 @@ NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 1e-4  # ⬆️ เพิ่มขึ้นเพื่อให้เรียนรู้เร็วขึ้น (จาก 3e-5)
-WEIGHT_DECAY = 1e-5  # ⬇️ ลด regularization penalty (จาก 5e-5)
+LEARNING_RATE = 5e-5  # ⬆️ ค่ากลางระหว่าง 3e-5 กับ 1e-4 (หวังว่าจะเสถียร)
+WEIGHT_DECAY = 1e-5  # ⬇️ ลด regularization penalty จาก 5e-5 → 1e-5 (ช่วยให้ loss ลดได้ดีขึ้น)
 
 # Gradient clipping (ป้องกัน exploding gradients)
 GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
 
 # Learning rate scheduler
 SCHEDULER = 'reduce_on_plateau'  # 'reduce_on_plateau' or 'cosine'
-SCHEDULER_PATIENCE = 7  # ⬆️ เพิ่มความอดทน (จาก 5) ให้มีเวลาเรียนรู้
+SCHEDULER_PATIENCE = 10  # ⬆️ เพิ่มความอดทนมากขึ้น (จาก 5) เพื่อให้ loss มีเวลาลดลง
 SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
 # Loss function  
-LOSS_TYPE = 'combo'  # ⬆️ ใช้ combo เพื่อให้ loss ลดลงได้มากกว่า pure dice
+LOSS_TYPE = 'dice'  # ⬇️ กลับไปใช้ Dice (Combo ทำ NaN แม้ LR ต่ำ + Gamma 1.5)
 FOCAL_ALPHA = 0.25  # Weight for positive class in Focal Loss
-FOCAL_GAMMA = 1.5   # ⬇️ ลดลงจาก 2.0 เพื่อความเสถียร
+FOCAL_GAMMA = 2.0   # Focusing parameter
 DICE_SMOOTH = 1e-6  # Smoothing factor for Dice Loss
-COMBO_FOCAL_WEIGHT = 0.5  # ⬆️ เพิ่มน้ำหนัก Focal (จาก 0.3) ช่วยลด loss
-COMBO_DICE_WEIGHT = 0.5   # ⬇️ ลดน้ำหนัก Dice (จาก 0.7) ให้สมดุล
+COMBO_FOCAL_WEIGHT = 0.3  # น้ำหนัก Focal Loss
+COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss
 
 
 # Early stopping
