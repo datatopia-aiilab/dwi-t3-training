@@ -14,7 +14,7 @@ import json
 
 # Import our modules
 import config
-from model import get_attention_unet
+from models import get_model  # ⬆️ Updated to support multiple architectures
 from loss import get_loss_function
 from dataset import create_dataloaders
 from utils import (
@@ -22,6 +22,13 @@ from utils import (
     save_training_history, 
     print_metrics_table,
     build_slice_mapping
+)
+from mlflow_utils import (
+    setup_mlflow,
+    log_config_params,
+    log_epoch_metrics,
+    log_training_complete,
+    end_run
 )
 
 
@@ -250,13 +257,27 @@ def train_model(cfg):
     
     # Create model
     print("\n🏗️  Creating model...")
-    model = get_attention_unet(cfg)
+    model = get_model(cfg)  # ⬆️ Updated to support multiple architectures
     model = model.to(device)
     
-    params = model.count_parameters()
-    print(f"   Total parameters: {params['total']:,}")
-    print(f"   Trainable parameters: {params['trainable']:,}")
-    print(f"   Model size: ~{params['total'] * 4 / (1024**2):.2f} MB")
+    # Count parameters (if method exists)
+    model_params = None
+    if hasattr(model, 'count_parameters'):
+        params = model.count_parameters()
+        model_params = params
+        print(f"   Total parameters: {params['total']:,}")
+        print(f"   Trainable parameters: {params['trainable']:,}")
+        print(f"   Model size: ~{params['total'] * 4 / (1024**2):.2f} MB")
+    else:
+        total_params = sum(p.numel() for p in model.parameters())
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        model_params = {'total': total_params, 'trainable': trainable_params}
+        print(f"   Total parameters: {total_params:,}")
+        print(f"   Trainable parameters: {trainable_params:,}")
+        print(f"   Model size: ~{total_params * 4 / (1024**2):.2f} MB")
+    
+    # Initialize MLflow tracking
+    mlflow_run = setup_mlflow(cfg, model_params)
     
     # Create loss function
     print("\n📉 Creating loss function...")
@@ -329,6 +350,9 @@ def train_model(cfg):
         scaler = torch.amp.GradScaler('cuda')
         print(f"   Mixed precision: Enabled")
     
+    # Log configuration parameters to MLflow
+    log_config_params(cfg)
+    
     # Training history
     history = {
         'train_loss': [],
@@ -380,6 +404,9 @@ def train_model(cfg):
         
         # Calculate epoch time
         epoch_time = time.time() - epoch_start
+        
+        # Log metrics to MLflow
+        log_epoch_metrics(epoch, train_metrics, val_metrics, current_lr, epoch_time)
         
         # Print epoch summary
         print(f"\nEpoch {epoch}/{cfg.NUM_EPOCHS} - {epoch_time:.1f}s - LR: {current_lr:.6f}")
@@ -438,6 +465,14 @@ def train_model(cfg):
     history_path = cfg.RESULTS_DIR / "training_history.json"
     save_training_history(history, history_path)
     
+    # Log all training artifacts to MLflow
+    best_model_path = cfg.get_model_save_path('best_model')
+    log_training_complete(
+        cfg, best_val_dice, best_epoch, epoch,
+        train_metrics, val_metrics, total_time,
+        best_model_path, history_path
+    )
+    
     # Save final model
     final_model_path = cfg.get_model_save_path('final_model')
     torch.save({
@@ -467,10 +502,15 @@ def train_model(cfg):
     
     print_metrics_table(summary, "Training Summary")
     
+    # End MLflow run
+    end_run(status="FINISHED")
+    
     print("\n🎉 Next steps:")
     print(f"   1. Review training curves: python evaluate.py --plot-only")
     print(f"   2. Evaluate on test set: python evaluate.py")
     print(f"   3. Check results in: {cfg.RESULTS_DIR}")
+    if cfg.MLFLOW_ENABLED:
+        print(f"   4. View MLflow UI: mlflow ui --backend-store-uri {cfg.MLFLOW_TRACKING_URI}")
     print("="*70 + "\n")
 
 
@@ -483,5 +523,17 @@ if __name__ == "__main__":
         print(f"   python 01_preprocess.py")
         exit(1)
     
-    # Start training
-    train_model(config)
+    # Start training with error handling for MLflow
+    try:
+        train_model(config)
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Training interrupted by user")
+        end_run(status="KILLED")
+        exit(1)
+    except Exception as e:
+        print(f"\n\n❌ Training failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        end_run(status="FAILED")
+        exit(1)
+

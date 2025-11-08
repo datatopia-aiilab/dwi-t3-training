@@ -5,6 +5,11 @@
 torch>=2.0.0
 torchvision>=0.15.0
 
+# Segmentation Models Library (for multiple architectures + pre-trained weights)
+segmentation-models-pytorch>=0.3.3
+timm>=0.9.0  # Required by smp for some encoders
+pretrainedmodels>=0.7.4  # Additional pre-trained models
+
 # Data Processing
 numpy
 opencv-python>=4.7.0
@@ -28,7 +33,10 @@ scipy>=1.9.0
 # Optional: for better performance
 # ninja  # For faster PyTorch compilation
 
-# Optional: for experiment tracking
+# Experiment Tracking
+mlflow>=2.9.0  # For experiment tracking, model registry, and comparison
+
+# Optional: for other tracking tools
 # tensorboard>=2.12.0
 # wandb>=0.15.0
 

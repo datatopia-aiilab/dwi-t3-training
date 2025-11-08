@@ -31,18 +31,18 @@ PREDICTIONS_DIR = RESULTS_DIR / "predictions"
 
 # ==================== Data Parameters ====================
 # Image specifications
-IMAGE_SIZE = (384, 384)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
+IMAGE_SIZE = (256, 256)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
 ORIGINAL_SIZE = None  # จะถูกตรวจจับอัตโนมัติจากข้อมูล
 
 # Data split ratio
 # Test: ตายตัว 48 slices (~5.66%)
 # ที่เหลือ 800: Train 80% (640) + Val 20% (160)
 TRAIN_RATIO = 0.80  # 80% ของ (total - test) = 640 slices
-VAL_RATIO = 0.20    # 20% ของ (total - test) = 160 slices
-TEST_RATIO = 0.1   # ตายตัว 48 slices (~5.66% ของ total)
+VAL_RATIO = 0.20    # 20% ของ (total - test) = 160 slices  
+TEST_RATIO = 0.0566 # ตายตัว 48 slices (~5.66% ของ total)
 
 # Random seed for reproducibility
-RANDOM_SEED = 10
+RANDOM_SEED = 42
 
 # Minimum slices per patient (for filtering)
 MIN_SLICES_PER_PATIENT = 1  # ตั้งเป็น 1 เพื่อรวมทุก patient (ใช้ zero padding)
@@ -67,27 +67,52 @@ TRAIN_STD = None   # จะถูกคำนวณและบันทึก�
 # Input
 IN_CHANNELS = 3  # 2.5D input: [N-1, N, N+1] slices
 
-# U-Net architecture
+# Output
+OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
+
+# ==================== Architecture Selection ====================
+# Available architectures:
+#   'attention_unet' - Custom Attention U-Net (current baseline, 17.5M params)
+#   'unet++'         - U-Net++ with nested skip connections (~20M params)
+#   'fpn'            - Feature Pyramid Network (~25M params)
+#   'deeplabv3+'     - DeepLabV3+ with ASPP (~40M params)
+#   'manet'          - Multi-Attention Network (~22M params)
+#   'pspnet'         - Pyramid Scene Parsing Network (~45M params)
+
+MODEL_ARCHITECTURE = 'attention_unet'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
+
+# ==================== Encoder Selection (for SMP models) ====================
+# Available encoders (when using unet++, fpn, deeplabv3+, manet, pspnet):
+#   'resnet34'       - ResNet-34 (~21M params, balanced)
+#   'resnet50'       - ResNet-50 (~25M params, more capacity)
+#   'efficientnet-b0' - EfficientNet-B0 (~5M params, efficient)
+#   'efficientnet-b3' - EfficientNet-B3 (~12M params, powerful)
+#   'resnext50_32x4d' - ResNeXt-50 (~25M params, strong)
+#   'timm-efficientnet-b5' - EfficientNet-B5 from timm (~30M params)
+
+ENCODER_NAME = 'resnet34'  # Default encoder for SMP models
+
+# Pre-trained weights
+ENCODER_WEIGHTS = 'imagenet'  # Options: 'imagenet' (pre-trained), None (random init)
+
+# ==================== Custom U-Net Architecture (for attention_unet only) ====================
 # Round 3 (Baseline): [64,128,256,512] → 31M → Val 72%, Test 56%, Gap 16%
 # Round 6 (Small): [32,64,128,256] → 7.8M → Val 61% (underfitting)
 # Round 7 (Medium, no aug): [48,96,192,384] → 17.5M → Val 67%, Test 53%
 # Round 8 (Medium + light aug): [48,96,192,384] → Val 69%, Test 53% ⭐ Best balance
 # Round 9 (Large + heavy reg): [64,128,256,512] → Val 64%, Test 55% (underfitting)
-# Round 10 (Medium + optimized): [48,96,192,384] → Target: Val 72%+, Test 60%+
-ENCODER_CHANNELS = [48, 96, 192, 384]  # ⬇️ กลับมาใช้ Medium (Round 8 ดีสุด)
-DECODER_CHANNELS = [384, 192, 96, 48]  # ตามลำดับ encoder
-BOTTLENECK_CHANNELS = 768  # Medium size
-
-# Output
-OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
+# Round 10 (Medium + optimized): [48,96,192,384] → Val 70%, Test 62% ⭐ **BEST**
+ENCODER_CHANNELS = [48, 96, 192, 384]  # For attention_unet only
+DECODER_CHANNELS = [384, 192, 96, 48]  # For attention_unet only
+BOTTLENECK_CHANNELS = 768  # For attention_unet only
 
 # Attention Gate
-USE_ATTENTION = True  # เปิด/ปิด Attention Gates
+USE_ATTENTION = True  # เปิด/ปิด Attention Gates (for attention_unet only)
 
 # ==================== Training Parameters ====================
 # Basic training settings
 NUM_EPOCHS = 200  # ⬇️ ลดลงจาก 250 (ไม่ต้องการ train นานเกินไป)
-BATCH_SIZE = 8  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
+BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
@@ -174,6 +199,20 @@ LOG_FILE = RESULTS_DIR / "training_log.txt"
 # Tensorboard
 USE_TENSORBOARD = False  # เปิด/ปิด Tensorboard logging
 TENSORBOARD_DIR = RESULTS_DIR / "tensorboard"
+
+# ==================== MLflow Settings ====================
+# MLflow - Experiment Tracking & Model Registry
+MLFLOW_ENABLED = True  # เปิด/ปิด MLflow tracking
+MLFLOW_TRACKING_URI = str(PROJECT_ROOT / "mlruns")  # Local tracking directory
+MLFLOW_EXPERIMENT_NAME = "DWI_Segmentation"  # ชื่อ experiment
+MLFLOW_RUN_NAME = None  # None = auto-generate (e.g., "unet++_resnet34_20250108_143022")
+
+# MLflow Tags (จะถูกเพิ่มใน run automatically)
+# - architecture: MODEL_ARCHITECTURE
+# - encoder: ENCODER_NAME (for SMP models)
+# - pretrained: "yes" / "no"
+# - augmentation: "enabled" / "disabled"
+# - loss_type: LOSS_TYPE
 
 # ==================== Helper Functions ====================
 def create_directories():
