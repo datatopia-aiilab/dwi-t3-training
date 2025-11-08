@@ -108,6 +108,7 @@ DICE_SMOOTH = 1e-6  # Smoothing factor for Dice Loss
 COMBO_FOCAL_WEIGHT = 0.3  # น้ำหนัก Focal Loss (focus on hard examples)
 COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss (overall overlap)
 
+
 # Early stopping
 EARLY_STOPPING_PATIENCE = 35  # ⬆️ เพิ่มจาก 25 เพื่อให้มีโอกาสเรียนรู้จาก augmentation มากขึ้น
 EARLY_STOPPING_MIN_DELTA = 1e-4  # การเปลี่ยนแปลงขั้นต่ำที่ถือว่า "ดีขึ้น"
