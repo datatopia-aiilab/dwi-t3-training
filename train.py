@@ -105,7 +105,13 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg,
     
     pbar = tqdm(dataloader, desc=f"Epoch {epoch} [Train]", leave=False)
     
-    for batch_idx, (images, masks) in enumerate(pbar):
+    for batch_idx, batch_data in enumerate(pbar):
+        # Unpack batch (handle both 2-tuple and 3-tuple for backward compatibility)
+        if len(batch_data) == 3:
+            images, masks, _ = batch_data  # Ignore filename during training
+        else:
+            images, masks = batch_data
+        
         # Move to device
         images = images.to(device)
         masks = masks.to(device)
@@ -192,7 +198,13 @@ def validate_one_epoch(model, dataloader, criterion, device, epoch):
     pbar = tqdm(dataloader, desc=f"Epoch {epoch} [Val]", leave=False)
     
     with torch.no_grad():
-        for images, masks in pbar:
+        for batch_data in pbar:
+            # Unpack batch (handle both 2-tuple and 3-tuple for backward compatibility)
+            if len(batch_data) == 3:
+                images, masks, _ = batch_data  # Ignore filename during validation
+            else:
+                images, masks = batch_data
+            
             # Move to device
             images = images.to(device)
             masks = masks.to(device)
