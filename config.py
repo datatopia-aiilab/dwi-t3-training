@@ -39,10 +39,10 @@ ORIGINAL_SIZE = None  # จะถูกตรวจจับอัตโนม�
 # ที่เหลือ 800: Train 80% (640) + Val 20% (160)
 TRAIN_RATIO = 0.80  # 80% ของ (total - test) = 640 slices
 VAL_RATIO = 0.20    # 20% ของ (total - test) = 160 slices  
-TEST_RATIO = 0.0566 # ตายตัว 48 slices (~5.66% ของ total)
+TEST_RATIO = 0.06 # ตายตัว 48 slices (~5.66% ของ total)
 
 # Random seed for reproducibility
-RANDOM_SEED = 42
+RANDOM_SEED = 10
 
 # Minimum slices per patient (for filtering)
 MIN_SLICES_PER_PATIENT = 1  # ตั้งเป็น 1 เพื่อรวมทุก patient (ใช้ zero padding)
@@ -79,7 +79,7 @@ OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
 #   'manet'          - Multi-Attention Network (~22M params)
 #   'pspnet'         - Pyramid Scene Parsing Network (~45M params)
 
-MODEL_ARCHITECTURE = 'attention_unet'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
+MODEL_ARCHITECTURE = 'deeplabv3+'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
 
 # ==================== Encoder Selection (for SMP models) ====================
 # Available encoders (when using unet++, fpn, deeplabv3+, manet, pspnet):
@@ -90,7 +90,7 @@ MODEL_ARCHITECTURE = 'attention_unet'  # เปลี่ยนตรงนี้
 #   'resnext50_32x4d' - ResNeXt-50 (~25M params, strong)
 #   'timm-efficientnet-b5' - EfficientNet-B5 from timm (~30M params)
 
-ENCODER_NAME = 'resnet34'  # Default encoder for SMP models
+ENCODER_NAME = 'efficientnet-b3'  # Default encoder for SMP models
 
 # Pre-trained weights
 ENCODER_WEIGHTS = 'imagenet'  # Options: 'imagenet' (pre-trained), None (random init)
@@ -139,7 +139,7 @@ COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss
 
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 35  # ⬇️ ลดลงจาก 40 (ไม่ต้องรอนาน)
+EARLY_STOPPING_PATIENCE = 100  # ⬇️ ลดลงจาก 40 (ไม่ต้องรอนาน)
 EARLY_STOPPING_MIN_DELTA = 1e-4  # การเปลี่ยนแปลงขั้นต่ำที่ถือว่า "ดีขึ้น"
 
 # Checkpointing
