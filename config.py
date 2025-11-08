@@ -68,14 +68,15 @@ TRAIN_STD = None   # จะถูกคำนวณและบันทึก�
 IN_CHANNELS = 3  # 2.5D input: [N-1, N, N+1] slices
 
 # U-Net architecture
-# Round 3 (Baseline): [64,128,256,512] → 31M → Val 72.12%, Test 56.08%
-# Round 6 (Small): [32,64,128,256] → 7.8M → Val 60.96% (underfitting)
-# Round 7 (Medium, no aug): [48,96,192,384] → 17.5M → Val 66.92%, Test 53.43%
-# Round 8 (Medium + aug): [48,96,192,384] → 17.5M → Val 69.01%, Test 53.43%
-# Round 9 (Large + aug + reg): [64,128,256,512] → 31M → Target: Val 74%+, Test 62%+
-ENCODER_CHANNELS = [64, 128, 256, 512]  # ⬆️ กลับไปใช้ Large model
-DECODER_CHANNELS = [512, 256, 128, 64]  # ตามลำดับ encoder
-BOTTLENECK_CHANNELS = 1024  # ⬆️ กลับมาใช้ 1024
+# Round 3 (Baseline): [64,128,256,512] → 31M → Val 72%, Test 56%, Gap 16%
+# Round 6 (Small): [32,64,128,256] → 7.8M → Val 61% (underfitting)
+# Round 7 (Medium, no aug): [48,96,192,384] → 17.5M → Val 67%, Test 53%
+# Round 8 (Medium + light aug): [48,96,192,384] → Val 69%, Test 53% ⭐ Best balance
+# Round 9 (Large + heavy reg): [64,128,256,512] → Val 64%, Test 55% (underfitting)
+# Round 10 (Medium + optimized): [48,96,192,384] → Target: Val 72%+, Test 60%+
+ENCODER_CHANNELS = [48, 96, 192, 384]  # ⬇️ กลับมาใช้ Medium (Round 8 ดีสุด)
+DECODER_CHANNELS = [384, 192, 96, 48]  # ตามลำดับ encoder
+BOTTLENECK_CHANNELS = 768  # Medium size
 
 # Output
 OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
@@ -85,21 +86,21 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates
 
 # ==================== Training Parameters ====================
 # Basic training settings
-NUM_EPOCHS = 250  # ⬆️ เพิ่มจาก 200 → 250 (ให้เวลา augmentation ทำงานมากขึ้น)
+NUM_EPOCHS = 200  # ⬇️ ลดลงจาก 250 (ไม่ต้องการ train นานเกินไป)
 BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 3e-5  # ⬇️ ลดลงจาก 5e-5 → 3e-5 (เสถียรกว่าสำหรับ Large model)
-WEIGHT_DECAY = 2e-4  # ⬆️⬆️ เพิ่มขึ้นอีก 2 เท่า (จาก 1e-4) เพื่อควบคุม Large model
+LEARNING_RATE = 8e-5  # ⬆️⬆️ เพิ่มขึ้นอีก (จาก 3e-5) เพื่อให้เรียนรู้เร็วขึ้น
+WEIGHT_DECAY = 8e-5  # ⬇️ ลดลง (จาก 2e-4) ให้อยู่กึ่งกลาง 1e-5 กับ 1e-4
 
 # Gradient clipping (ป้องกัน exploding gradients)
 GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
 
 # Learning rate scheduler
 SCHEDULER = 'reduce_on_plateau'  # 'reduce_on_plateau' or 'cosine'
-SCHEDULER_PATIENCE = 10  # ⬆️ เพิ่มจาก 8 → 10 (ให้เวลามากขึ้น)
+SCHEDULER_PATIENCE = 12  # ⬆️ เพิ่มขึ้น (เพื่อให้มีเวลาเรียนรู้มากขึ้น)
 SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
@@ -113,7 +114,7 @@ COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss
 
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 40  # ⬆️ เพิ่มจาก 35 → 40 (อดทนมากขึ้นกับ augmentation)
+EARLY_STOPPING_PATIENCE = 35  # ⬇️ ลดลงจาก 40 (ไม่ต้องรอนาน)
 EARLY_STOPPING_MIN_DELTA = 1e-4  # การเปลี่ยนแปลงขั้นต่ำที่ถือว่า "ดีขึ้น"
 
 # Checkpointing
@@ -122,24 +123,24 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = True  # ⬆️ คงไว้ (ช่วยให้ Large model generalize ได้ดีขึ้น)
+AUGMENTATION_ENABLED = True  # ⬆️ คงไว้ (Round 8 ใช้ได้ดี)
 
-# Augmentation probabilities - ⬆️ เพิ่มความแรงขึ้นเล็กน้อย
-AUG_HORIZONTAL_FLIP_PROB = 0.4  # ⬆️ เพิ่มจาก 0.3 → 0.4
+# Augmentation - กลับไปใช้ค่า Round 8 ที่ balanced ดี
+AUG_HORIZONTAL_FLIP_PROB = 0.3  # ⬇️ กลับเป็น 0.3 (Round 8)
 AUG_VERTICAL_FLIP_PROB = 0.0  # ไม่แนะนำสำหรับ medical images
-AUG_ROTATE_PROB = 0.3  # ⬆️ เพิ่มจาก 0.2 → 0.3
-AUG_ROTATE_LIMIT = 10  # ⬆️ เพิ่มจาก ±8° → ±10°
+AUG_ROTATE_PROB = 0.25  # ลดลงเล็กน้อย (จาก 0.3)
+AUG_ROTATE_LIMIT = 10  # คง ±10°
 
-AUG_ELASTIC_TRANSFORM_PROB = 0.2  # ⬆️ เปิดใหม่แบบอ่อน (เดิม 0.0)
-AUG_ELASTIC_ALPHA = 0.5  # ⬇️ ลดจาก 1.0 → 0.5 (อ่อนกว่าเดิม 50%)
+AUG_ELASTIC_TRANSFORM_PROB = 0.15  # ⬇️ ลดลง (จาก 0.2) แต่ยังเปิดใช้
+AUG_ELASTIC_ALPHA = 0.5  # คง 0.5 (อ่อน)
 AUG_ELASTIC_SIGMA = 50.0
 
-AUG_BRIGHTNESS_CONTRAST_PROB = 0.2  # ⬆️ เพิ่มจาก 0.15 → 0.2
-AUG_BRIGHTNESS_LIMIT = 0.08  # ⬆️ เพิ่มจาก 0.05 → 0.08
-AUG_CONTRAST_LIMIT = 0.08  # ⬆️ เพิ่มจาก 0.05 → 0.08
+AUG_BRIGHTNESS_CONTRAST_PROB = 0.2  # คง 0.2
+AUG_BRIGHTNESS_LIMIT = 0.08  # คง 0.08
+AUG_CONTRAST_LIMIT = 0.08  # คง 0.08
 
-AUG_GAUSSIAN_NOISE_PROB = 0.15  # ⬆️ เพิ่มจาก 0.1 → 0.15
-AUG_GAUSSIAN_NOISE_VAR = (5.0, 25.0)  # ⬆️ เพิ่มจาก (5,20) → (5,25)
+AUG_GAUSSIAN_NOISE_PROB = 0.12  # ⬇️ ลดลงเล็กน้อย (จาก 0.15)
+AUG_GAUSSIAN_NOISE_VAR = (5.0, 22.0)  # ลดลงเล็กน้อย (จาก 25)
 
 # ==================== Evaluation Parameters ====================
 # Metrics
