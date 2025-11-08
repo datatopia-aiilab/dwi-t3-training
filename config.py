@@ -31,18 +31,18 @@ PREDICTIONS_DIR = RESULTS_DIR / "predictions"
 
 # ==================== Data Parameters ====================
 # Image specifications
-IMAGE_SIZE = (256, 256)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
+IMAGE_SIZE = (384, 384)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
 ORIGINAL_SIZE = None  # จะถูกตรวจจับอัตโนมัติจากข้อมูล
 
 # Data split ratio
 # Test: ตายตัว 48 slices (~5.66%)
 # ที่เหลือ 800: Train 80% (640) + Val 20% (160)
 TRAIN_RATIO = 0.80  # 80% ของ (total - test) = 640 slices
-VAL_RATIO = 0.20    # 20% ของ (total - test) = 160 slices  
-TEST_RATIO = 0.0566 # ตายตัว 48 slices (~5.66% ของ total)
+VAL_RATIO = 0.20    # 20% ของ (total - test) = 160 slices
+TEST_RATIO = 0.1   # ตายตัว 48 slices (~5.66% ของ total)
 
 # Random seed for reproducibility
-RANDOM_SEED = 42
+RANDOM_SEED = 10
 
 # Minimum slices per patient (for filtering)
 MIN_SLICES_PER_PATIENT = 1  # ตั้งเป็น 1 เพื่อรวมทุก patient (ใช้ zero padding)
@@ -87,7 +87,7 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates
 # ==================== Training Parameters ====================
 # Basic training settings
 NUM_EPOCHS = 200  # ⬇️ ลดลงจาก 250 (ไม่ต้องการ train นานเกินไป)
-BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
+BATCH_SIZE = 8  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
