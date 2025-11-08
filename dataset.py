@@ -53,6 +53,7 @@ class DWIDataset25D(Dataset):
         Returns:
             image: Tensor (3, H, W) - 2.5D input [N-1, N, N+1]
             mask: Tensor (1, H, W) - Binary mask
+            filename: str - Slice filename for reference
         """
         slice_name = self.slice_names[idx]
         
@@ -77,7 +78,7 @@ class DWIDataset25D(Dataset):
         if not isinstance(mask, torch.Tensor):
             mask = torch.from_numpy(mask).unsqueeze(0).float()
         
-        return image_25d, mask
+        return image_25d, mask, slice_name
     
     def load_25d_input(self, slice_name):
         """

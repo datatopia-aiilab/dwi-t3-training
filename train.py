@@ -28,7 +28,15 @@ from mlflow_utils import (
     log_config_params,
     log_epoch_metrics,
     log_training_complete,
+    log_complete_evaluation,
     end_run
+)
+from evaluation_module import (
+    run_evaluation,
+    generate_qualitative_results,
+    print_evaluation_summary,
+    save_per_sample_results_csv,
+    plot_metrics_distribution
 )
 
 
@@ -502,15 +510,88 @@ def train_model(cfg):
     
     print_metrics_table(summary, "Training Summary")
     
+    # ======================================================================
+    # AUTO-EVALUATE ON TEST SET
+    # ======================================================================
+    print("\n" + "="*70)
+    print("🧪 RUNNING AUTOMATIC TEST EVALUATION")
+    print("="*70)
+    
+    try:
+        # Load best model for evaluation
+        print(f"\n📂 Loading best model from: {best_model_path}")
+        checkpoint = torch.load(best_model_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.eval()
+        
+        # Run evaluation on test set
+        test_loader = dataloaders['test']
+        print(f"📊 Evaluating on {len(test_loader.dataset)} test samples...")
+        
+        results = run_evaluation(
+            model=model,
+            test_loader=test_loader,
+            device=device,
+            config=cfg,
+            show_progress=True
+        )
+        
+        # Display formatted results
+        print_evaluation_summary(results, show_per_sample_top=5)
+        
+        # Save per-sample results to CSV
+        csv_path = cfg.RESULTS_DIR / "test_per_sample_results.csv"
+        save_per_sample_results_csv(results['per_sample'], csv_path)
+        print(f"\n💾 Saved per-sample results to: {csv_path}")
+        print(f"   Total samples: {len(results['per_sample'])}")
+        print(f"   Columns: filename, dice, iou, precision, recall, f1")
+        
+        # Generate qualitative results (prediction images with filenames)
+        print(f"\n🖼️  Generating prediction visualizations...")
+        saved_images = generate_qualitative_results(
+            sample_results=results['sample_results'],
+            save_dir=cfg.PREDICTIONS_DIR,
+            config=cfg,
+            num_samples=10
+        )
+        print(f"   ✅ Generated {len(saved_images)} prediction images in: {cfg.PREDICTIONS_DIR}")
+        
+        # Plot metrics distribution
+        print(f"\n📊 Creating metrics distribution plots...")
+        plot_metrics_distribution(results['per_sample'], cfg.PLOTS_DIR)
+        print(f"   ✅ Saved distribution plot to: {cfg.PLOTS_DIR / 'test_metrics_distribution.png'}")
+        
+        # Log complete evaluation to MLflow
+        if cfg.MLFLOW_ENABLED:
+            print(f"\n📦 Logging test evaluation to MLflow...")
+            log_complete_evaluation(
+                results=results,
+                csv_path=csv_path,
+                images_dir=cfg.PREDICTIONS_DIR,
+                plots_dir=cfg.PLOTS_DIR,
+                config=cfg
+            )
+            print("   ✅ Test evaluation logged successfully")
+        
+        print("\n" + "="*70)
+        print("✅ TEST EVALUATION COMPLETED!")
+        print("="*70)
+        
+    except Exception as e:
+        print(f"\n⚠️  Error during test evaluation: {str(e)}")
+        print("   Training completed successfully, but test evaluation failed.")
+        print("   You can run evaluation manually: python evaluate.py")
+    
     # End MLflow run
     end_run(status="FINISHED")
     
-    print("\n🎉 Next steps:")
-    print(f"   1. Review training curves: python evaluate.py --plot-only")
-    print(f"   2. Evaluate on test set: python evaluate.py")
-    print(f"   3. Check results in: {cfg.RESULTS_DIR}")
+    print("\n🎉 Training and evaluation complete!")
+    print(f"   ✓ Training time: {total_time/60:.1f} minutes")
+    print(f"   ✓ Best validation Dice: {best_val_dice:.4f}")
+    print(f"   ✓ Test evaluation: Completed")
+    print(f"   ✓ Results saved to: {cfg.RESULTS_DIR}")
     if cfg.MLFLOW_ENABLED:
-        print(f"   4. View MLflow UI: mlflow ui --backend-store-uri {cfg.MLFLOW_TRACKING_URI}")
+        print(f"   ✓ View MLflow UI: mlflow ui --backend-store-uri {cfg.MLFLOW_TRACKING_URI}")
     print("="*70 + "\n")
 
 

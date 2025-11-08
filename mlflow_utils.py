@@ -480,3 +480,187 @@ def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs,
     print(f"✅ ALL ARTIFACTS LOGGED SUCCESSFULLY")
     print_run_info()
     print(f"{'='*70}\n")
+
+
+# ==================== Test Evaluation Logging Functions ====================
+
+def log_test_evaluation(test_metrics_aggregated, per_sample_metrics=None):
+    """
+    Log test set evaluation metrics to MLflow
+    
+    Args:
+        test_metrics_aggregated: Dict with aggregated metrics
+            Format: {'dice': {'mean': 0.65, 'std': 0.12, 'min': 0.42, 'max': 0.85, ...}, ...}
+        per_sample_metrics: List of per-sample metric dicts (optional)
+    """
+    if not mlflow.active_run():
+        return
+    
+    try:
+        print("\n📊 Logging test evaluation metrics to MLflow...")
+        
+        # Log aggregated metrics (these show in main experiments table)
+        for metric_name, values in test_metrics_aggregated.items():
+            # Main metric (mean)
+            mlflow.log_metric(f"test_{metric_name}", values['mean'])
+            
+            # Additional statistics
+            mlflow.log_metric(f"test_{metric_name}_std", values['std'])
+            mlflow.log_metric(f"test_{metric_name}_min", values['min'])
+            mlflow.log_metric(f"test_{metric_name}_max", values['max'])
+            mlflow.log_metric(f"test_{metric_name}_median", values['median'])
+        
+        # Log summary statistics
+        if per_sample_metrics:
+            mlflow.log_metric("test_num_samples", len(per_sample_metrics))
+            
+            # Find best and worst samples
+            dice_scores = [m['dice'] for m in per_sample_metrics]
+            best_dice = max(dice_scores)
+            worst_dice = min(dice_scores)
+            dice_range = best_dice - worst_dice
+            
+            mlflow.log_metric("test_dice_range", dice_range)
+            mlflow.log_metric("test_dice_best", best_dice)
+            mlflow.log_metric("test_dice_worst", worst_dice)
+        
+        print("   ✅ Logged aggregated test metrics")
+        
+    except Exception as e:
+        print(f"   ⚠️  Failed to log test metrics: {e}")
+
+
+def log_per_sample_results_csv(csv_path, artifact_name="per_sample_results"):
+    """
+    Log per-sample results CSV as MLflow artifact
+    
+    Args:
+        csv_path: Path to CSV file
+        artifact_name: Name for artifact folder
+    """
+    if not mlflow.active_run():
+        return
+    
+    try:
+        csv_path = Path(csv_path)
+        if csv_path.exists():
+            mlflow.log_artifact(str(csv_path), artifact_path="evaluation")
+            print(f"   ✅ Logged per-sample CSV: {csv_path.name}")
+        else:
+            print(f"   ⚠️  CSV file not found: {csv_path}")
+    
+    except Exception as e:
+        print(f"   ⚠️  Failed to log per-sample CSV: {e}")
+
+
+def log_qualitative_images(images_dir, max_images=None):
+    """
+    Log qualitative prediction images to MLflow
+    
+    Args:
+        images_dir: Directory containing prediction images
+        max_images: Maximum number of images to log (None = all)
+    """
+    if not mlflow.active_run():
+        return
+    
+    try:
+        images_dir = Path(images_dir)
+        if not images_dir.exists():
+            print(f"   ⚠️  Images directory not found: {images_dir}")
+            return
+        
+        # Find all PNG images
+        image_files = sorted(images_dir.glob("*.png"))
+        
+        if max_images:
+            image_files = image_files[:max_images]
+        
+        if not image_files:
+            print(f"   ⚠️  No PNG images found in: {images_dir}")
+            return
+        
+        # Log each image
+        for img_file in image_files:
+            mlflow.log_artifact(str(img_file), artifact_path="predictions")
+        
+        print(f"   ✅ Logged {len(image_files)} prediction images")
+        
+    except Exception as e:
+        print(f"   ⚠️  Failed to log prediction images: {e}")
+
+
+def log_test_plots(plots_dir):
+    """
+    Log test evaluation plots (distribution, etc.) to MLflow
+    
+    Args:
+        plots_dir: Directory containing plots
+    """
+    if not mlflow.active_run():
+        return
+    
+    try:
+        plots_dir = Path(plots_dir)
+        if not plots_dir.exists():
+            return
+        
+        # Log test-specific plots
+        test_plots = [
+            'test_metrics_distribution.png',
+            'metrics_distribution.png',
+        ]
+        
+        logged_count = 0
+        for plot_name in test_plots:
+            plot_path = plots_dir / plot_name
+            if plot_path.exists():
+                mlflow.log_artifact(str(plot_path), artifact_path="plots")
+                logged_count += 1
+        
+        if logged_count > 0:
+            print(f"   ✅ Logged {logged_count} test plots")
+        
+    except Exception as e:
+        print(f"   ⚠️  Failed to log test plots: {e}")
+
+
+def log_complete_evaluation(results, csv_path, images_dir, plots_dir, config):
+    """
+    Convenience function to log complete evaluation results
+    
+    Args:
+        results: Results dict from evaluation_module.run_evaluation()
+        csv_path: Path to per-sample CSV
+        images_dir: Directory with prediction images
+        plots_dir: Directory with plots
+        config: Configuration module
+    """
+    if not config.MLFLOW_ENABLED or not mlflow.active_run():
+        return
+    
+    print(f"\n{'='*70}")
+    print(f"📦 LOGGING TEST EVALUATION TO MLFLOW")
+    print(f"{'='*70}\n")
+    
+    # Log metrics
+    log_test_evaluation(
+        results['aggregated'],
+        results['per_sample']
+    )
+    
+    # Log CSV
+    log_per_sample_results_csv(csv_path)
+    
+    # Log images (limit to 20 to avoid bloat)
+    log_qualitative_images(images_dir, max_images=20)
+    
+    # Log plots
+    log_test_plots(plots_dir)
+    
+    print(f"\n{'='*70}")
+    print(f"✅ TEST EVALUATION LOGGED SUCCESSFULLY")
+    print(f"   - Aggregated metrics: {len(results['aggregated'])} metrics")
+    print(f"   - Per-sample results: {len(results['per_sample'])} samples")
+    print(f"   - Prediction images: up to 20 images")
+    print(f"{'='*70}\n")
