@@ -67,13 +67,15 @@ TRAIN_STD = None   # จะถูกคำนวณและบันทึก�
 # Input
 IN_CHANNELS = 3  # 2.5D input: [N-1, N, N+1] slices
 
-# U-Net architecture (ขนาดกลาง - balance ระหว่าง capacity กับ overfitting)
-# Small: [32, 64, 128, 256] → 7.8M → Val Dice 61% (เล็กเกินไป)
-# Large: [64, 128, 256, 512] → 31M → Val Dice 72% แต่ Test 56% (ใหญ่เกินไป)
-# Medium: [48, 96, 192, 384] → ~17.5M → Sweet spot!
-ENCODER_CHANNELS = [48, 96, 192, 384]  # ⬆️ เพิ่มจาก [32,64,128,256]
-DECODER_CHANNELS = [384, 192, 96, 48]  # ตามลำดับ encoder
-BOTTLENECK_CHANNELS = 768  # ⬆️ เพิ่มจาก 512
+# U-Net architecture
+# Round 3 (Baseline): [64,128,256,512] → 31M → Val 72.12%, Test 56.08%
+# Round 6 (Small): [32,64,128,256] → 7.8M → Val 60.96% (underfitting)
+# Round 7 (Medium, no aug): [48,96,192,384] → 17.5M → Val 66.92%, Test 53.43%
+# Round 8 (Medium + aug): [48,96,192,384] → 17.5M → Val 69.01%, Test 53.43%
+# Round 9 (Large + aug + reg): [64,128,256,512] → 31M → Target: Val 74%+, Test 62%+
+ENCODER_CHANNELS = [64, 128, 256, 512]  # ⬆️ กลับไปใช้ Large model
+DECODER_CHANNELS = [512, 256, 128, 64]  # ตามลำดับ encoder
+BOTTLENECK_CHANNELS = 1024  # ⬆️ กลับมาใช้ 1024
 
 # Output
 OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
@@ -89,15 +91,15 @@ NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 5e-5  # ⬆️ ค่ากลางระหว่าง 3e-5 กับ 1e-4 (หวังว่าจะเสถียร)
-WEIGHT_DECAY = 1e-4  # ⬆️ เพิ่ม regularization จาก 1e-5 → 1e-4 (ลด overfitting)
+LEARNING_RATE = 3e-5  # ⬇️ ลดลงจาก 5e-5 → 3e-5 (เสถียรกว่าสำหรับ Large model)
+WEIGHT_DECAY = 2e-4  # ⬆️⬆️ เพิ่มขึ้นอีก 2 เท่า (จาก 1e-4) เพื่อควบคุม Large model
 
 # Gradient clipping (ป้องกัน exploding gradients)
 GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
 
 # Learning rate scheduler
 SCHEDULER = 'reduce_on_plateau'  # 'reduce_on_plateau' or 'cosine'
-SCHEDULER_PATIENCE = 8  # ⬇️ ลดจาก 10 → 8 (ลด LR เร็วขึ้นเมื่อติดขัด)
+SCHEDULER_PATIENCE = 10  # ⬆️ เพิ่มจาก 8 → 10 (ให้เวลามากขึ้น)
 SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
 
@@ -120,24 +122,24 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = True  # ⬆️ เปิด augmentation แบบอ่อนโยนมาก (ไม่แรงเหมือนเดิม)
+AUGMENTATION_ENABLED = True  # ⬆️ คงไว้ (ช่วยให้ Large model generalize ได้ดีขึ้น)
 
-# Augmentation probabilities (0.0 = ไม่ใช้, 1.0 = ใช้ทุกครั้ง)
-AUG_HORIZONTAL_FLIP_PROB = 0.3  # ⬇️ ลดจาก 0.5 → 0.3
+# Augmentation probabilities - ⬆️ เพิ่มความแรงขึ้นเล็กน้อย
+AUG_HORIZONTAL_FLIP_PROB = 0.4  # ⬆️ เพิ่มจาก 0.3 → 0.4
 AUG_VERTICAL_FLIP_PROB = 0.0  # ไม่แนะนำสำหรับ medical images
-AUG_ROTATE_PROB = 0.2  # ⬇️ ลดจาก 0.3 → 0.2
-AUG_ROTATE_LIMIT = 8  # ⬇️ หมุนได้สูงสุด ±8 องศา (จาก ±15)
+AUG_ROTATE_PROB = 0.3  # ⬆️ เพิ่มจาก 0.2 → 0.3
+AUG_ROTATE_LIMIT = 10  # ⬆️ เพิ่มจาก ±8° → ±10°
 
-AUG_ELASTIC_TRANSFORM_PROB = 0.0  # ⬇️ ปิดชั่วคราว (เดิม 0.4) - แรงเกินไป
-AUG_ELASTIC_ALPHA = 1.0
+AUG_ELASTIC_TRANSFORM_PROB = 0.2  # ⬆️ เปิดใหม่แบบอ่อน (เดิม 0.0)
+AUG_ELASTIC_ALPHA = 0.5  # ⬇️ ลดจาก 1.0 → 0.5 (อ่อนกว่าเดิม 50%)
 AUG_ELASTIC_SIGMA = 50.0
 
-AUG_BRIGHTNESS_CONTRAST_PROB = 0.15  # ⬇️ ลดจาก 0.3 → 0.15
-AUG_BRIGHTNESS_LIMIT = 0.05  # ⬇️ ลดจาก 0.1 → 0.05
-AUG_CONTRAST_LIMIT = 0.05  # ⬇️ ลดจาก 0.1 → 0.05
+AUG_BRIGHTNESS_CONTRAST_PROB = 0.2  # ⬆️ เพิ่มจาก 0.15 → 0.2
+AUG_BRIGHTNESS_LIMIT = 0.08  # ⬆️ เพิ่มจาก 0.05 → 0.08
+AUG_CONTRAST_LIMIT = 0.08  # ⬆️ เพิ่มจาก 0.05 → 0.08
 
-AUG_GAUSSIAN_NOISE_PROB = 0.1  # ⬇️ ลดจาก 0.2 → 0.1
-AUG_GAUSSIAN_NOISE_VAR = (5.0, 20.0)  # ⬇️ ลดจาก (10, 50) → (5, 20)
+AUG_GAUSSIAN_NOISE_PROB = 0.15  # ⬆️ เพิ่มจาก 0.1 → 0.15
+AUG_GAUSSIAN_NOISE_VAR = (5.0, 25.0)  # ⬆️ เพิ่มจาก (5,20) → (5,25)
 
 # ==================== Evaluation Parameters ====================
 # Metrics
