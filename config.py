@@ -204,7 +204,7 @@ TENSORBOARD_DIR = RESULTS_DIR / "tensorboard"
 # MLflow - Experiment Tracking & Model Registry
 MLFLOW_ENABLED = True  # เปิด/ปิด MLflow tracking
 MLFLOW_TRACKING_URI = str(PROJECT_ROOT / "mlruns")  # Local tracking directory
-MLFLOW_EXPERIMENT_NAME = "DWI_Segmentation"  # ชื่อ experiment
+MLFLOW_EXPERIMENT_NAME = f"DWI-NOV-{MODEL_ARCHITECTURE}"  # ชื่อ experiment
 MLFLOW_RUN_NAME = None  # None = auto-generate (e.g., "unet++_resnet34_20250108_143022")
 
 # MLflow Tags (จะถูกเพิ่มใน run automatically)
