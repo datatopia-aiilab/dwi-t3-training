@@ -13,7 +13,7 @@ import json
 
 # Import our modules
 import config
-from model import get_attention_unet
+from models import get_model  # ⬆️ Updated to support multiple architectures
 from dataset import create_dataloaders
 from utils import (
     calculate_all_metrics,
@@ -41,8 +41,8 @@ def load_best_model(model_path, device):
     # Load checkpoint (weights_only=False for PyTorch 2.6+)
     checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     
-    # Create model
-    model = get_attention_unet(config)
+    # Create model using get_model() to support all architectures
+    model = get_model(config)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
     model.eval()
@@ -337,6 +337,13 @@ def main(args):
     # Set device
     device = config.DEVICE
     print(f"\n💻 Using device: {device}")
+    
+    # Display current architecture configuration
+    print(f"\n🏗️  Model Configuration:")
+    print(f"   Architecture: {config.MODEL_ARCHITECTURE}")
+    if config.MODEL_ARCHITECTURE != 'attention_unet':
+        print(f"   Encoder: {config.ENCODER_NAME}")
+        print(f"   Pre-trained: {config.ENCODER_WEIGHTS or 'None (random init)'}")
     
     # Plot only mode (skip evaluation)
     if args.plot_only:
