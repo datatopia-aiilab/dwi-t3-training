@@ -119,7 +119,7 @@ USE_SE_ATTENTION = False  # ✅ Very lightweight (~0.1M params), channel attenti
                           # Expected gain: +1-2% Dice
 
 # Convolutional Block Attention Module (CBAM)
-USE_CBAM_ATTENTION = True  # ✅ Channel + Spatial attention (~0.5M params)
+USE_CBAM_ATTENTION = False  # ✅ Channel + Spatial attention (~0.5M params)
                             # Best for: Balanced spatial and channel focus
                             # Expected gain: +2-3% Dice
 
@@ -129,7 +129,7 @@ USE_ECA_ATTENTION = False  # ✅ More efficient than SE, no reduction
                            # Expected gain: +1-2% Dice
 
 # Dual Attention (Position + Channel)
-USE_DUAL_ATTENTION = False  # ⚠️ Expensive (~2-3M params), applied at bottleneck only
+USE_DUAL_ATTENTION = True  # ⚠️ Expensive (~2-3M params), applied at bottleneck only
                             # Best for: Long-range dependencies, medical imaging
                             # Expected gain: +3-5% Dice
                             # Note: Only applied to layers with >=256 channels
