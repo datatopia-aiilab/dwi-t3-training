@@ -117,12 +117,12 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates (for attention_un
 # Multiple can be enabled simultaneously
 
 # Squeeze-and-Excitation (SE) Block
-USE_SE_ATTENTION = True  # ✅ Very lightweight (~0.1M params), channel attention
+USE_SE_ATTENTION = False  # ✅ Very lightweight (~0.1M params), channel attention
                           # Best for: Quick improvement with minimal overhead
                           # Expected gain: +1-2% Dice
 
 # Convolutional Block Attention Module (CBAM)
-USE_CBAM_ATTENTION = False  # ✅ Channel + Spatial attention (~0.5M params)
+USE_CBAM_ATTENTION = True  # ✅ Channel + Spatial attention (~0.5M params)
                             # Best for: Balanced spatial and channel focus
                             # Expected gain: +2-3% Dice
 
