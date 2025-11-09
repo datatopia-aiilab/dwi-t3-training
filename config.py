@@ -157,7 +157,8 @@ LEARNING_RATE = 8e-5  # ⬆️⬆️ เพิ่มขึ้นอีก (จ�
 WEIGHT_DECAY = 8e-5  # ⬇️ ลดลง (จาก 2e-4) ให้อยู่กึ่งกลาง 1e-5 กับ 1e-4
 
 # Gradient clipping (ป้องกัน exploding gradients)
-GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
+GRADIENT_CLIP_VALUE = 0.5  # ⬇️ ลดลงจาก 1.0 → 0.5 เพื่อ stability กับ attention
+                            # ถ้ายังเจอ NaN ให้ลดเป็น 0.1
 
 # Learning rate scheduler
 SCHEDULER = 'cosine'  # 'reduce_on_plateau' or 'cosine'

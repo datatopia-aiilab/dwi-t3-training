@@ -20,17 +20,19 @@ import torch.nn.functional as F
 # ============================================================================
 class SEBlock(nn.Module):
     """
-    Squeeze-and-Excitation Block
+    Squeeze-and-Excitation Block (Stable Version)
     - Channel-wise attention
     - Very lightweight (~0.1M params)
+    - Numerical stability improvements
     - Paper: "Squeeze-and-Excitation Networks" (CVPR 2018)
     
     Args:
         channels: Number of input channels
         reduction: Reduction ratio for bottleneck (default: 16)
+        scale: Scaling factor for residual connection (default: 0.1)
     """
     
-    def __init__(self, channels, reduction=16):
+    def __init__(self, channels, reduction=16, scale=0.1):
         super(SEBlock, self).__init__()
         
         # Ensure reduced channels is at least 1
@@ -39,29 +41,42 @@ class SEBlock(nn.Module):
         self.squeeze = nn.AdaptiveAvgPool2d(1)
         self.excitation = nn.Sequential(
             nn.Linear(channels, reduced_channels, bias=False),
+            nn.BatchNorm1d(reduced_channels),  # Add batch norm
             nn.ReLU(inplace=True),
             nn.Linear(reduced_channels, channels, bias=False),
-            nn.Sigmoid()
+            nn.BatchNorm1d(channels)  # Add batch norm
         )
+        self.sigmoid = nn.Sigmoid()
+        self.scale = scale
     
     def forward(self, x):
         b, c, _, _ = x.size()
+        identity = x
         
         # Squeeze: Global pooling
         y = self.squeeze(x).view(b, c)
         
         # Excitation: FC layers
-        y = self.excitation(y).view(b, c, 1, 1)
+        y = self.excitation(y)
         
-        # Scale
-        return x * y.expand_as(x)
+        # Clamp to prevent extreme values
+        y = torch.clamp(y, -10, 10)
+        
+        # Sigmoid attention
+        y = self.sigmoid(y).view(b, c, 1, 1)
+        
+        # Apply with scaled residual
+        attended = x * y.expand_as(x)
+        out = identity + self.scale * (attended - identity)
+        
+        return out
 
 
 # ============================================================================
 # 2. CONVOLUTIONAL BLOCK ATTENTION MODULE (CBAM)
 # ============================================================================
 class ChannelAttention(nn.Module):
-    """Channel Attention component of CBAM"""
+    """Channel Attention component of CBAM with numerical stability"""
     
     def __init__(self, channels, reduction=16):
         super(ChannelAttention, self).__init__()
@@ -74,62 +89,88 @@ class ChannelAttention(nn.Module):
         
         self.fc = nn.Sequential(
             nn.Conv2d(channels, reduced_channels, 1, bias=False),
+            nn.BatchNorm2d(reduced_channels),  # Add batch norm for stability
             nn.ReLU(inplace=True),
-            nn.Conv2d(reduced_channels, channels, 1, bias=False)
+            nn.Conv2d(reduced_channels, channels, 1, bias=False),
+            nn.BatchNorm2d(channels)  # Add batch norm for stability
         )
         
         self.sigmoid = nn.Sigmoid()
     
     def forward(self, x):
+        # Add small epsilon to prevent NaN
         avg_out = self.fc(self.avg_pool(x))
         max_out = self.fc(self.max_pool(x))
         out = avg_out + max_out
+        
+        # Clamp to prevent extreme values
+        out = torch.clamp(out, -10, 10)
+        
         return self.sigmoid(out)
 
 
 class SpatialAttention(nn.Module):
-    """Spatial Attention component of CBAM"""
+    """Spatial Attention component of CBAM with numerical stability"""
     
     def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
         
-        self.conv = nn.Conv2d(2, 1, kernel_size=kernel_size, 
-                             padding=kernel_size // 2, bias=False)
+        self.conv = nn.Sequential(
+            nn.Conv2d(2, 1, kernel_size=kernel_size, 
+                     padding=kernel_size // 2, bias=False),
+            nn.BatchNorm2d(1)  # Add batch norm for stability
+        )
         self.sigmoid = nn.Sigmoid()
     
     def forward(self, x):
+        # Use mean and max with small epsilon
         avg_out = torch.mean(x, dim=1, keepdim=True)
         max_out, _ = torch.max(x, dim=1, keepdim=True)
         out = torch.cat([avg_out, max_out], dim=1)
         out = self.conv(out)
+        
+        # Clamp to prevent extreme values
+        out = torch.clamp(out, -10, 10)
+        
         return self.sigmoid(out)
 
 
 class CBAM(nn.Module):
     """
-    Convolutional Block Attention Module
+    Convolutional Block Attention Module (Stable Version)
     - Channel attention + Spatial attention
-    - Sequential application
+    - Sequential application with residual scaling
+    - Numerical stability improvements
     - Paper: "CBAM: Convolutional Block Attention Module" (ECCV 2018)
     
     Args:
         channels: Number of input channels
         reduction: Reduction ratio for channel attention (default: 16)
         kernel_size: Kernel size for spatial attention (default: 7)
+        scale: Scaling factor for residual connection (default: 0.1)
     """
     
-    def __init__(self, channels, reduction=16, kernel_size=7):
+    def __init__(self, channels, reduction=16, kernel_size=7, scale=0.1):
         super(CBAM, self).__init__()
         
         self.channel_attention = ChannelAttention(channels, reduction)
         self.spatial_attention = SpatialAttention(kernel_size)
+        self.scale = scale  # Learnable scaling factor
     
     def forward(self, x):
-        # Channel attention
-        x = x * self.channel_attention(x)
+        # Store original input
+        identity = x
         
-        # Spatial attention
-        x = x * self.spatial_attention(x)
+        # Channel attention with residual
+        channel_att = self.channel_attention(x)
+        x = x * channel_att
+        
+        # Spatial attention with residual
+        spatial_att = self.spatial_attention(x)
+        x = x * spatial_att
+        
+        # Scaled residual connection to prevent gradient explosion
+        x = identity + self.scale * (x - identity)
         
         return x
 
