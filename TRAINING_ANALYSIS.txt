@@ -1,0 +1,470 @@
+═══════════════════════════════════════════════════════════════════════════
+การวิเคราะห์ปัญหา Training Plateau ที่ 66% (ไม่ทะลุ 70%)
+═══════════════════════════════════════════════════════════════════════════
+
+Analysis Date: November 9, 2025
+Problem: Val Dice stuck at ~0.66, cannot reach 0.70+
+Attempts: Multiple architectures, schedulers, attention mechanisms
+
+═══════════════════════════════════════════════════════════════════════════
+📊 การวิเคราะจาก Training Log
+═══════════════════════════════════════════════════════════════════════════
+
+สังเกตการณ์สำคัญ:
+-----------------
+
+1. WARMUP PHASE (Epoch 1-5): ✅ ทำงานดี
+   - Epoch 1: Val 0.0496
+   - Epoch 2: Val 0.0778
+   - Epoch 3: Val 0.0960
+   - Epoch 4: Val 0.1261
+   - Epoch 5: Val 0.1903
+   → Warmup ช่วยให้เริ่มต้นได้ดี, ไม่มี NaN
+
+2. RAPID IMPROVEMENT (Epoch 6-30): ✅ ก้าวกระโดด
+   - Epoch 6: Val 0.2406
+   - Epoch 10: Val 0.3575
+   - Epoch 20: Val 0.5270
+   - Epoch 30: Val 0.6285
+   → เพิ่มขึ้น ~0.4 ใน 25 epochs (เร็วมาก)
+
+3. SLOW IMPROVEMENT (Epoch 31-50): ⚠️ ชะลอตัว
+   - Epoch 31: Val 0.6268
+   - Epoch 40: Val 0.6157
+   - Epoch 50: Val 0.6591
+   → เพิ่มขึ้นแค่ 0.03 ใน 20 epochs (ช้า 13 เท่า)
+
+4. PLATEAU (Epoch 51-71): ❌ ติด
+   - Epoch 51: Val 0.6609 ⭐ Best
+   - Epoch 60: Val 0.6596
+   - Epoch 71: Val 0.5945
+   → ไม่มีการพัฒนา, เริ่มแย่ลง
+
+5. TRAIN-VAL GAP: ⚠️ กว้างขึ้นเรื่อย ๆ
+   - Epoch 30: Train 0.7602 vs Val 0.6285 → Gap 0.13
+   - Epoch 50: Train 0.8596 vs Val 0.6591 → Gap 0.20
+   - Epoch 70: Train 0.8961 vs Val 0.6349 → Gap 0.26
+   → Overfitting รุนแรงขึ้น!
+
+6. LEARNING RATE: 📉 ลดลงช้าเกินไป
+   - Epoch 5: LR 0.000080
+   - Epoch 30: LR 0.000077 (ลดแค่ 4%)
+   - Epoch 71: LR 0.000059 (ลดแค่ 26%)
+   → Cosine annealing ลดช้าเกินไป, ยังใช้ LR สูงอยู่
+
+═══════════════════════════════════════════════════════════════════════════
+🔍 การวินิจฉัยปัญหา (ROOT CAUSE ANALYSIS)
+═══════════════════════════════════════════════════════════════════════════
+
+ปัญหาหลัก 3 ข้อ:
+----------------
+
+1. 🎯 SEVERE OVERFITTING (ปัญหาหลัก)
+   ────────────────────────────────────
+   
+   อาการ:
+   - Train Dice เพิ่มขึ้นเรื่อย ๆ (0.76 → 0.90)
+   - Val Dice ติดที่ 0.66
+   - Gap เพิ่มขึ้นจาก 0.13 → 0.26
+   
+   สาเหตุ:
+   a) Dataset เล็ก (640 train, 160 val, 48 test = 848 total)
+   b) Model ใหญ่เกินไป (UNet++ ~20M params)
+   c) Augmentation ปิด (AUGMENTATION_ENABLED = False)
+   d) Regularization ไม่เพียงพอ (Weight Decay = 8e-5)
+   
+   ผลกระทบ:
+   → Model จำ training set ได้ แต่ generalize ไม่ได้
+   → Val performance ไม่ดีขึ้น แม้ train ดีขึ้น
+
+2. 📉 LEARNING RATE ไม่เหมาะสม
+   ──────────────────────────────
+   
+   อาการ:
+   - LR ลดลงช้าเกินไป (0.000080 → 0.000059 ใน 66 epochs)
+   - ยังใช้ LR สูงตอน epoch 50-70
+   - ไม่มี LR restart เพื่อหนีจาก local minimum
+   
+   สาเหตุ:
+   - Warmup_cosine กับ NUM_EPOCHS=200 ทำให้ cosine decay ช้า
+   - T_max = 200-5 = 195 epochs
+   - LR ยังสูงอยู่ตอน epoch 71 (36% ของ cycle)
+   
+   ผลกระทบ:
+   → LR สูงเกินไป ทำให้ oscillate รอบ local minimum
+   → ไม่สามารถ fine-tune ได้ละเอียด
+
+3. 🏔️ LOCAL MINIMUM TRAP
+   ────────────────────────
+   
+   อาการ:
+   - Val Dice oscillate รอบ 0.63-0.66
+   - ไม่มีการพัฒนาเลยใน 20 epochs
+   - Train ยังดีขึ้นได้ แสดงว่า model capacity พอ
+   
+   สาเหตุ:
+   - ติดที่ local minimum ที่ train ดี แต่ val ไม่ดี
+   - ไม่มี mechanism เพื่อหนีออกจาก local minimum
+   - Cosine annealing ไม่มี restart
+   
+   ผลกระทบ:
+   → Model ค้างที่ solution ที่ overfit
+   → ไม่สามารถหา better solution ที่ generalize ได้
+
+═══════════════════════════════════════════════════════════════════════════
+💡 วิธีแก้ไขแบบครบวงจร (COMPREHENSIVE SOLUTION)
+═══════════════════════════════════════════════════════════════════════════
+
+Strategy 1: แก้ OVERFITTING (ลำดับความสำคัญ #1)
+─────────────────────────────────────────────────
+
+A. เปิด Data Augmentation ทันที
+   ────────────────────────────────
+   ```python
+   AUGMENTATION_ENABLED = True  # ⚠️ เปลี่ยนเป็น True!
+   
+   # ใช้ค่าที่ balanced:
+   AUG_HORIZONTAL_FLIP_PROB = 0.3
+   AUG_ROTATE_PROB = 0.25
+   AUG_ROTATE_LIMIT = 10
+   AUG_ELASTIC_TRANSFORM_PROB = 0.15
+   AUG_BRIGHTNESS_CONTRAST_PROB = 0.2
+   AUG_GAUSSIAN_NOISE_PROB = 0.12
+   ```
+   
+   ผลที่คาดหวัง:
+   - Effective dataset size เพิ่มขึ้น 3-5 เท่า
+   - Model เห็นตัวอย่างที่หลากหลายขึ้น
+   - Train-Val gap ลดลง 30-50%
+   - Val Dice อาจลดลงเล็กน้อย ชั่วคราว แต่จะดีขึ้นในที่สุด
+
+B. เพิ่ม Regularization
+   ────────────────────────
+   ```python
+   WEIGHT_DECAY = 2e-4  # ⬆️ เพิ่มจาก 8e-5
+   
+   # หรือใช้ Dropout (ต้องแก้ใน model)
+   DROPOUT = 0.3  # เพิ่มใน decoder layers
+   ```
+   
+   ผลที่คาดหวัง:
+   - Model จำ training data ยากขึ้น
+   - Forced to learn general features
+   - Train Dice อาจลดลง แต่ Val Dice ดีขึ้น
+
+C. ลดขนาด Model (ถ้า A+B ไม่พอ)
+   ────────────────────────────────
+   ```python
+   # Option 1: ใช้ encoder เล็กกว่า
+   MODEL_ARCHITECTURE = 'unet++'
+   ENCODER_NAME = 'mobilenet_v2'  # ~3.5M params
+   
+   # Option 2: ใช้ architecture เล็กกว่า
+   MODEL_ARCHITECTURE = 'fpn'
+   ENCODER_NAME = 'efficientnet-b0'  # ~5M params
+   ```
+   
+   ผลที่คาดหวัง:
+   - Model capacity ลดลง → overfit ยากขึ้น
+   - Training เร็วขึ้น
+   - อาจต้อง trade-off performance เล็กน้อย
+
+Strategy 2: แก้ LEARNING RATE (ลำดับความสำคัญ #2)
+──────────────────────────────────────────────────
+
+A. ลด NUM_EPOCHS หรือเพิ่ม Decay Rate
+   ────────────────────────────────────────
+   ```python
+   # Option 1: ลดจำนวน epochs
+   NUM_EPOCHS = 100  # จาก 200
+   WARMUP_EPOCHS = 5
+   # → T_max = 95, cosine decay เร็วขึ้น 2 เท่า
+   
+   # Option 2: ใช้ scheduler ที่ aggressive กว่า
+   SCHEDULER = 'polynomial'
+   POLY_POWER = 2.0
+   # → Decay เร็วกว่า cosine
+   ```
+   
+   ผลที่คาดหวัง:
+   - LR ลดลงเร็วขึ้น
+   - เข้าสู่ fine-tuning phase เร็วขึ้น
+   - Val performance ดีขึ้นในช่วง epoch 40-60
+
+B. ใช้ Cosine Restarts เพื่อหนี Local Minimum
+   ─────────────────────────────────────────────
+   ```python
+   SCHEDULER = 'cosine_restarts'
+   WARMUP_EPOCHS = 5
+   FIRST_CYCLE_EPOCHS = 30  # Restart ทุก 30 epochs
+   CYCLE_MULT = 1  # ความยาว cycle เท่าเดิม
+   ```
+   
+   ผลที่คาดหวัง:
+   - LR reset ทุก 30 epochs
+   - โอกาสหนีจาก local minimum
+   - Explore different solutions
+   - อาจเห็น spikes ใน loss curve (normal)
+
+C. ปรับ Learning Rate เริ่มต้น
+   ─────────────────────────────
+   ```python
+   # ถ้ายัง plateau ลองลด LR
+   LEARNING_RATE = 5e-5  # จาก 8e-5
+   
+   # หรือเพิ่มสำหรับ cosine_restarts
+   LEARNING_RATE = 1e-4  # ให้ restart มี impact มากขึ้น
+   ```
+
+Strategy 3: เพิ่ม Model Capacity อย่างชาญฉลาด
+────────────────────────────────────────────────
+
+A. ใช้ Attention Mechanisms ที่เหมาะสม
+   ──────────────────────────────────────
+   ```python
+   # Current: USE_DUAL_ATTENTION = True (expensive)
+   
+   # Option 1: ลองเปลี่ยนเป็น CBAM (lighter)
+   USE_DUAL_ATTENTION = False
+   USE_CBAM_ATTENTION = True  # Channel + Spatial
+   
+   # Option 2: ลอง ECA (most efficient)
+   USE_DUAL_ATTENTION = False
+   USE_ECA_ATTENTION = True
+   ```
+   
+   เหตุผล:
+   - Dual Attention ใหญ่ (2-3M params) → เสี่ยง overfit
+   - CBAM หรือ ECA เล็กกว่า แต่ effective
+   - อาจช่วยให้ model focus ถูกที่มากขึ้น
+
+B. Mixed Precision Training
+   ─────────────────────────────
+   ```python
+   # Already enabled, good!
+   USE_MIXED_PRECISION = True
+   ```
+
+Strategy 4: Loss Function Tuning
+────────────────────────────────────
+
+A. ลอง Combo Loss
+   ───────────────
+   ```python
+   LOSS_TYPE = 'combo'
+   COMBO_FOCAL_WEIGHT = 0.5  # เพิ่มจาก 0.3
+   COMBO_DICE_WEIGHT = 0.5
+   FOCAL_GAMMA = 2.0
+   ```
+   
+   เหตุผล:
+   - Focal loss ช่วยกับ hard examples
+   - อาจช่วยให้ model เรียนรู้ edge cases ได้ดีขึ้น
+
+Strategy 5: Early Stopping & Checkpoint Strategy
+─────────────────────────────────────────────────
+
+```python
+# ปรับลด patience เพื่อไม่เสียเวลา
+EARLY_STOPPING_PATIENCE = 30  # จาก 100
+
+# เพิ่ม min_delta เพื่อต้อง improve จริง ๆ
+EARLY_STOPPING_MIN_DELTA = 5e-4  # จาก 1e-4
+```
+
+═══════════════════════════════════════════════════════════════════════════
+🎯 แผนการแก้ไขแบบ Step-by-Step
+═══════════════════════════════════════════════════════════════════════════
+
+Phase 1: Quick Win (ทำทันที - คาดว่าช่วยได้มาก)
+──────────────────────────────────────────────────
+
+1. เปิด Augmentation
+   ```python
+   AUGMENTATION_ENABLED = True
+   ```
+   Expected improvement: +5-8% Val Dice
+
+2. เพิ่ม Weight Decay
+   ```python
+   WEIGHT_DECAY = 2e-4
+   ```
+   Expected improvement: +2-3% Val Dice
+
+3. ลด Epochs และใช้ Polynomial Decay
+   ```python
+   NUM_EPOCHS = 100
+   SCHEDULER = 'polynomial'
+   POLY_POWER = 2.0
+   ```
+   Expected improvement: +2-4% Val Dice
+
+คาดการณ์: Val Dice 0.66 → 0.75-0.78
+
+Phase 2: Medium Changes (ถ้า Phase 1 ไม่พอ)
+───────────────────────────────────────────────
+
+4. เปลี่ยน Attention Mechanism
+   ```python
+   USE_DUAL_ATTENTION = False
+   USE_CBAM_ATTENTION = True
+   ```
+   Expected improvement: +1-2% Val Dice
+
+5. ใช้ Cosine Restarts
+   ```python
+   SCHEDULER = 'cosine_restarts'
+   FIRST_CYCLE_EPOCHS = 25
+   ```
+   Expected improvement: +2-3% Val Dice
+
+คาดการณ์: Val Dice 0.75 → 0.78-0.80
+
+Phase 3: Major Changes (Last Resort)
+────────────────────────────────────────
+
+6. ลดขนาด Model
+   ```python
+   ENCODER_NAME = 'mobilenet_v2'
+   # หรือ
+   MODEL_ARCHITECTURE = 'fpn'
+   ```
+
+7. เพิ่ม More Data
+   - Data augmentation แบบ offline
+   - External datasets
+   - Synthetic data generation
+
+═══════════════════════════════════════════════════════════════════════════
+📋 Recommended Configuration (ให้ลองก่อน)
+═══════════════════════════════════════════════════════════════════════════
+
+```python
+# Model
+MODEL_ARCHITECTURE = 'unet++'
+ENCODER_NAME = 'efficientnet-b0'  # เดิม, เล็กกว่า resnet34
+ENCODER_WEIGHTS = 'imagenet'
+
+# Attention (เปลี่ยนเป็นเบากว่า)
+USE_DUAL_ATTENTION = False
+USE_CBAM_ATTENTION = True  # ⭐ เปลี่ยนใหม่
+USE_SE_ATTENTION = False
+USE_ECA_ATTENTION = False
+USE_MULTISCALE_ATTENTION = False
+
+# Training
+NUM_EPOCHS = 100  # ⬇️ ลดจาก 200
+BATCH_SIZE = 16
+LEARNING_RATE = 8e-5
+WEIGHT_DECAY = 2e-4  # ⬆️ เพิ่มจาก 8e-5
+GRADIENT_CLIP_VALUE = 0.5
+
+# Scheduler (เปลี่ยนเป็น aggressive กว่า)
+SCHEDULER = 'polynomial'  # ⭐ เปลี่ยนจาก warmup_cosine
+WARMUP_EPOCHS = 5
+POLY_POWER = 2.0
+
+# Loss
+LOSS_TYPE = 'dice'  # เดิม, หรือลอง 'combo'
+
+# Augmentation (⚠️ สำคัญมาก!)
+AUGMENTATION_ENABLED = True  # ⬆️⬆️⬆️ เปลี่ยนเป็น True!
+AUG_HORIZONTAL_FLIP_PROB = 0.3
+AUG_ROTATE_PROB = 0.25
+AUG_ROTATE_LIMIT = 10
+AUG_ELASTIC_TRANSFORM_PROB = 0.15
+AUG_BRIGHTNESS_CONTRAST_PROB = 0.2
+AUG_GAUSSIAN_NOISE_PROB = 0.12
+
+# Early Stopping
+EARLY_STOPPING_PATIENCE = 30  # ⬇️ ลดจาก 100
+EARLY_STOPPING_MIN_DELTA = 5e-4
+```
+
+═══════════════════════════════════════════════════════════════════════════
+🔬 ทำไม Augmentation จึงสำคัญที่สุด
+═══════════════════════════════════════════════════════════════════════════
+
+คำนวณ Effective Dataset Size:
+──────────────────────────────
+
+ไม่มี Aug:
+- Train: 640 samples
+- Variation: 1x
+- Effective size: 640
+
+มี Aug (6 transformations × avg 0.2 prob):
+- Train: 640 samples
+- Each sample: 1.2^6 ≈ 3 variations
+- Effective size: 640 × 3 = 1,920 samples
+
+Impact:
+- Dataset เพิ่มขึ้น 3 เท่า!
+- Model เห็นความหลากหลายมากขึ้น
+- Generalization ดีขึ้นมาก
+
+จาก Literature:
+- Medical imaging: Aug ช่วย +10-15% Dice
+- Small datasets (<1000): Aug critical
+- Stroke segmentation: Aug มาตรฐาน
+
+═══════════════════════════════════════════════════════════════════════════
+📊 คาดการณ์ผลลัพธ์
+═══════════════════════════════════════════════════════════════════════════
+
+Scenario 1: Phase 1 Only (Aug + Weight Decay + Poly Scheduler)
+───────────────────────────────────────────────────────────────
+Expected Results:
+- Train Dice: 0.80-0.82 (ลดลงจาก 0.90)
+- Val Dice: 0.73-0.76 (เพิ่มขึ้นจาก 0.66)
+- Test Dice: 0.70-0.73
+- Train-Val Gap: 0.07-0.10 (ลดลงจาก 0.26)
+- Training Time: 40-50 mins (เร็วขึ้น 50%)
+
+Scenario 2: Phase 1 + 2 (+ CBAM + Cosine Restarts)
+───────────────────────────────────────────────────
+Expected Results:
+- Train Dice: 0.82-0.84
+- Val Dice: 0.76-0.79
+- Test Dice: 0.73-0.76
+- Best case: ทะลุ 0.80 Val Dice
+
+═══════════════════════════════════════════════════════════════════════════
+✅ Action Items (ทำตามลำดับ)
+═══════════════════════════════════════════════════════════════════════════
+
+1. ⚠️ CRITICAL - เปลี่ยนทันที:
+   ─────────────────────────────
+   [ ] AUGMENTATION_ENABLED = True
+   [ ] WEIGHT_DECAY = 2e-4
+   [ ] NUM_EPOCHS = 100
+   [ ] SCHEDULER = 'polynomial'
+   [ ] EARLY_STOPPING_PATIENCE = 30
+
+2. 🔄 Recommended - ลองเปลี่ยน:
+   ──────────────────────────────
+   [ ] USE_DUAL_ATTENTION = False
+   [ ] USE_CBAM_ATTENTION = True
+   [ ] LOSS_TYPE = 'combo' (optional)
+
+3. 🚀 Run Training:
+   ────────────────
+   [ ] python train.py
+   [ ] Monitor train-val gap
+   [ ] Check if Val Dice improves
+   [ ] Compare with previous runs in MLflow
+
+4. 📊 Analyze Results:
+   ───────────────────
+   [ ] Val Dice > 0.70? → Success!
+   [ ] Val Dice 0.65-0.70? → Try Phase 2
+   [ ] Val Dice < 0.65? → Need more changes
+
+5. 🔍 If Still Stuck:
+   ──────────────────
+   [ ] Try cosine_restarts scheduler
+   [ ] Reduce model size (mobilenet_v2)
+   [ ] Increase augmentation probability
+   [ ] Consider ensemble methods
+
+═══════════════════════════════════════════════════════════════════════════

@@ -150,14 +150,14 @@ ATTENTION_COMBINATION = 'sequential'  # 'sequential' or 'parallel'
 
 # ==================== Training Parameters ====================
 # Basic training settings
-NUM_EPOCHS = 200  # ⬇️ Quick test with 2 epochs
+NUM_EPOCHS = 100  # ⬇️⬇️ ลดจาก 200 → 100 เพื่อให้ LR decay เร็วขึ้น (แก้ plateau)
 BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
 OPTIMIZER = 'adamw'  # 'adam' or 'adamw'
-LEARNING_RATE = 8e-5  # ⬆️⬆️ เพิ่มขึ้นอีก (จาก 3e-5) เพื่อให้เรียนรู้เร็วขึ้น
-WEIGHT_DECAY = 8e-5  # ⬇️ ลดลง (จาก 2e-4) ให้อยู่กึ่งกลาง 1e-5 กับ 1e-4
+LEARNING_RATE = 8e-5  # ค่าที่ดีอยู่แล้ว
+WEIGHT_DECAY = 2e-4  # ⬆️⬆️ เพิ่มจาก 8e-5 → 2e-4 เพื่อลด overfitting (Train 0.90 vs Val 0.66)
 
 # Gradient clipping (ป้องกัน exploding gradients)
 GRADIENT_CLIP_VALUE = 0.5  # ⬇️ ลดลงจาก 1.0 → 0.5 เพื่อ stability กับ attention
@@ -166,7 +166,10 @@ GRADIENT_CLIP_VALUE = 0.5  # ⬇️ ลดลงจาก 1.0 → 0.5 เพื�
 # Learning rate scheduler
 # Available: 'cosine', 'reduce_on_plateau', 'warmup_cosine', 'cosine_restarts', 
 #            'one_cycle', 'polynomial', 'adaptive', 'exponential'
-SCHEDULER = 'warmup_cosine'  # ⭐ แนะนำสำหรับ attention mechanisms
+SCHEDULER = 'polynomial'  # ⭐⭐ เปลี่ยนเป็น polynomial เพื่อ decay เร็วกว่า cosine
+                          # Warmup_cosine กับ 200 epochs ทำให้ LR ลดช้าเกิน
+                          # → Epoch 71 ยัง LR 0.000059 (ลดแค่ 26%)
+                          # Polynomial จะ decay แบบ quadratic เร็วกว่า
 
 # Scheduler parameters (used by different schedulers)
 SCHEDULER_PATIENCE = 12  # For 'reduce_on_plateau', 'adaptive'
@@ -261,8 +264,8 @@ COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss
 
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 100  # ⬇️ ลดลงจาก 40 (ไม่ต้องรอนาน)
-EARLY_STOPPING_MIN_DELTA = 1e-4  # การเปลี่ยนแปลงขั้นต่ำที่ถือว่า "ดีขึ้น"
+EARLY_STOPPING_PATIENCE = 30  # ⬇️⬇️ ลดจาก 100 → 30 เพราะ epochs ลดลง และไม่อยากเสียเวลารอ
+EARLY_STOPPING_MIN_DELTA = 5e-4  # ⬆️ เพิ่มจาก 1e-4 เพื่อให้ต้อง improve จริง ๆ
 
 # Checkpointing
 SAVE_BEST_ONLY = True  # บันทึกเฉพาะโมเดลที่ดีที่สุด
@@ -270,7 +273,11 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = False  # ⬆️ คงไว้ (Round 8 ใช้ได้ดี)
+# ⚠️⚠️⚠️ CRITICAL FIX สำหรับ OVERFITTING ⚠️⚠️⚠️
+# ปัญหาหลัก: Train Dice 0.90 vs Val Dice 0.66 → Gap 0.26 (overfitting รุนแรง)
+# สาเหตุ: Dataset เล็ก (640 train) + Model ใหญ่ (20M params) + ไม่มี augmentation
+# วิธีแก้: เปิด augmentation เพื่อเพิ่ม effective dataset size จาก 640 → ~1,920
+AUGMENTATION_ENABLED = True  # ⬆️⬆️⬆️ เปลี่ยนเป็น True! (สำคัญมาก)
 
 # Augmentation - กลับไปใช้ค่า Round 8 ที่ balanced ดี
 AUG_HORIZONTAL_FLIP_PROB = 0.3  # ⬇️ กลับเป็น 0.3 (Round 8)
