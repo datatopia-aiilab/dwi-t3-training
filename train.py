@@ -532,7 +532,7 @@ def train_model(cfg):
     try:
         # Load best model for evaluation
         print(f"\n📂 Loading best model from: {best_model_path}")
-        checkpoint = torch.load(best_model_path, map_location=device)
+        checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint['model_state_dict'])
         model.eval()
         
@@ -591,6 +591,10 @@ def train_model(cfg):
         
     except Exception as e:
         print(f"\n⚠️  Error during test evaluation: {str(e)}")
+        print(f"   Error type: {type(e).__name__}")
+        import traceback
+        print(f"   Traceback:")
+        traceback.print_exc()
         print("   Training completed successfully, but test evaluation failed.")
         print("   You can run evaluation manually: python evaluate.py")
     

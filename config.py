@@ -31,7 +31,7 @@ PREDICTIONS_DIR = RESULTS_DIR / "predictions"
 
 # ==================== Data Parameters ====================
 # Image specifications
-IMAGE_SIZE = (256, 256)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
+IMAGE_SIZE = (384, 384)  # (Height, Width) - จะ resize ทุกภาพให้เป็นขนาดนี้
 ORIGINAL_SIZE = None  # จะถูกตรวจจับอัตโนมัติจากข้อมูล
 
 # Data split ratio
@@ -79,7 +79,7 @@ OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
 #   'manet'          - Multi-Attention Network (~22M params)
 #   'pspnet'         - Pyramid Scene Parsing Network (~45M params)
 
-MODEL_ARCHITECTURE = 'deeplabv3+'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
+MODEL_ARCHITECTURE = 'manet'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
 
 # ==================== Encoder Selection (for SMP models) ====================
 # Available encoders (when using unet++, fpn, deeplabv3+, manet, pspnet):
@@ -258,11 +258,17 @@ def print_config():
     print(f"   Normalization: {NORMALIZE_METHOD}")
     
     print(f"\n🏗️ Model:")
-    print(f"   Architecture: Attention U-Net (2.5D)")
+    print(f"   Architecture: {MODEL_ARCHITECTURE.upper()}")
     print(f"   Input Channels: {IN_CHANNELS}")
-    print(f"   Encoder Channels: {ENCODER_CHANNELS}")
-    print(f"   Bottleneck: {BOTTLENECK_CHANNELS}")
-    print(f"   Use Attention: {USE_ATTENTION}")
+    print(f"   Output Channels: {OUT_CHANNELS}")
+    
+    if MODEL_ARCHITECTURE == 'attention_unet':
+        print(f"   Encoder Channels: {ENCODER_CHANNELS}")
+        print(f"   Bottleneck: {BOTTLENECK_CHANNELS}")
+        print(f"   Use Attention: {USE_ATTENTION}")
+    else:
+        print(f"   Encoder: {ENCODER_NAME}")
+        print(f"   Pre-trained: {ENCODER_WEIGHTS or 'None (random init)'}")
     
     print(f"\n🎓 Training:")
     print(f"   Epochs: {NUM_EPOCHS}")
