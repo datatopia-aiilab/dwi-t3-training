@@ -1,0 +1,33 @@
+{
+  "description": "Custom experiment configuration",
+  "experiments": [
+    {
+      "id": "custom_exp1_manet_b3_384",
+      "params": {
+        "MODEL_ARCHITECTURE": "manet",
+        "ENCODER_NAME": "efficientnet-b3",
+        "IMAGE_SIZE": [384, 384],
+        "BATCH_SIZE": 16,
+        "NUM_EPOCHS": 200,
+        "AUGMENTATION_ENABLED": true,
+        "CLAHE_ENABLED": false,
+        "LEARNING_RATE": 8e-5,
+        "LOSS_TYPE": "dice"
+      }
+    },
+    {
+      "id": "custom_exp2_deeplabv3_res34_384",
+      "params": {
+        "MODEL_ARCHITECTURE": "deeplabv3+",
+        "ENCODER_NAME": "resnet34",
+        "IMAGE_SIZE": [384, 384],
+        "BATCH_SIZE": 16,
+        "NUM_EPOCHS": 200,
+        "AUGMENTATION_ENABLED": true,
+        "CLAHE_ENABLED": false,
+        "LEARNING_RATE": 8e-5,
+        "LOSS_TYPE": "dice"
+      }
+    }
+  ]
+}

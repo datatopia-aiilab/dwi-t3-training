@@ -79,7 +79,7 @@ OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
 #   'manet'          - Multi-Attention Network (~22M params)
 #   'pspnet'         - Pyramid Scene Parsing Network (~45M params)
 
-MODEL_ARCHITECTURE = 'manet'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
+MODEL_ARCHITECTURE = 'unet++'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
 
 # ==================== Encoder Selection (for SMP models) ====================
 # Available encoders (when using unet++, fpn, deeplabv3+, manet, pspnet):
@@ -90,7 +90,7 @@ MODEL_ARCHITECTURE = 'manet'  # เปลี่ยนตรงนี้เพื
 #   'resnext50_32x4d' - ResNeXt-50 (~25M params, strong)
 #   'timm-efficientnet-b5' - EfficientNet-B5 from timm (~30M params)
 
-ENCODER_NAME = 'efficientnet-b3'  # Default encoder for SMP models
+ENCODER_NAME = 'efficientnet-b0'  # Default encoder for SMP models
 
 # Pre-trained weights
 ENCODER_WEIGHTS = 'imagenet'  # Options: 'imagenet' (pre-trained), None (random init)
