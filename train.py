@@ -21,7 +21,8 @@ from utils import (
     calculate_dice_score, 
     save_training_history, 
     print_metrics_table,
-    build_slice_mapping
+    build_slice_mapping,
+    plot_training_curves_advanced
 )
 from mlflow_utils import (
     setup_mlflow,
@@ -484,6 +485,15 @@ def train_model(cfg):
     # Save training history
     history_path = cfg.RESULTS_DIR / "training_history.json"
     save_training_history(history, history_path)
+    
+    # Generate advanced training curves
+    curves_path = cfg.PLOTS_DIR / 'training_curves_advanced.png'
+    plot_training_curves_advanced(
+        history, 
+        best_epoch=best_epoch, 
+        save_path=curves_path
+    )
+    print(f"\n📊 Advanced training curves saved to: {curves_path}")
     
     # Log all training artifacts to MLflow
     best_model_path = cfg.get_model_save_path('best_model')

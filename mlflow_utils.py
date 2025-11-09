@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 import torch
 import json
+import numpy as np
 
 
 def setup_mlflow(cfg, model_params=None):
@@ -523,6 +524,20 @@ def log_test_evaluation(test_metrics_aggregated, per_sample_metrics=None):
             mlflow.log_metric("test_dice_range", dice_range)
             mlflow.log_metric("test_dice_best", best_dice)
             mlflow.log_metric("test_dice_worst", worst_dice)
+            
+            # Log volume metrics if available
+            if 'gt_volume_ml' in per_sample_metrics[0]:
+                gt_volumes = [m['gt_volume_ml'] for m in per_sample_metrics]
+                pred_volumes = [m['pred_volume_ml'] for m in per_sample_metrics]
+                volume_errors = [m['volume_error_percent'] for m in per_sample_metrics]
+                
+                mlflow.log_metric("test_mean_gt_volume_ml", np.mean(gt_volumes))
+                mlflow.log_metric("test_mean_pred_volume_ml", np.mean(pred_volumes))
+                mlflow.log_metric("test_mean_volume_error_percent", np.mean(volume_errors))
+                mlflow.log_metric("test_median_gt_volume_ml", np.median(gt_volumes))
+                mlflow.log_metric("test_median_pred_volume_ml", np.median(pred_volumes))
+                
+                print("   ✅ Logged volume metrics")
         
         print("   ✅ Logged aggregated test metrics")
         

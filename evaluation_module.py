@@ -10,7 +10,11 @@ from tqdm import tqdm
 from pathlib import Path
 import pandas as pd
 
-from utils import calculate_all_metrics, visualize_sample
+from utils import (
+    calculate_all_metrics, 
+    visualize_sample_advanced,
+    calculate_infarction_volume
+)
 
 
 def run_evaluation(model, test_loader, device, config, show_progress=True):
@@ -74,6 +78,15 @@ def run_evaluation(model, test_loader, device, config, show_progress=True):
                 # Add filename to metrics
                 filename = filenames[i] if isinstance(filenames, (list, tuple)) else filenames
                 sample_metrics['filename'] = filename
+                
+                # Calculate volumes (using 4mm pixel spacing)
+                gt_volume = calculate_infarction_volume(sample_mask[0], pixel_spacing=4.0, slice_thickness=4.0)
+                pred_volume = calculate_infarction_volume(sample_pred[0], pixel_spacing=4.0, slice_thickness=4.0)
+                volume_error = abs(pred_volume - gt_volume) / (gt_volume + 1e-6) * 100
+                
+                sample_metrics['gt_volume_ml'] = gt_volume
+                sample_metrics['pred_volume_ml'] = pred_volume
+                sample_metrics['volume_error_percent'] = volume_error
                 
                 all_metrics.append(sample_metrics)
                 
@@ -158,21 +171,17 @@ def generate_qualitative_results(sample_results, save_dir, config, num_samples=1
         # Remove .npy extension if present
         clean_filename = filename.replace('.npy', '')
         
-        # Create title with filename and metrics
-        title = f"{clean_filename}\nDice: {metrics['dice']:.3f} | IoU: {metrics['iou']:.3f} | Precision: {metrics['precision']:.3f} | Recall: {metrics['recall']:.3f}"
-        
-        # Visualize
-        fig = visualize_sample(
+        # Visualize with advanced 4-panel layout
+        fig = visualize_sample_advanced(
             image, mask, pred,
-            title=title,
-            alpha=config.VIZ_ALPHA,
-            gt_color=config.VIZ_GT_COLOR,
-            pred_color=config.VIZ_PRED_COLOR
+            filename=f"{clean_filename} | Dice: {metrics['dice']:.3f} | IoU: {metrics['iou']:.3f}",
+            pixel_spacing=4.0,
+            slice_thickness=4.0
         )
         
         # Save with filename in path
         save_path = save_dir / f'{clean_filename}_dice_{metrics["dice"]:.3f}.png'
-        fig.savefig(save_path, dpi=150, bbox_inches='tight')
+        fig.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close(fig)
         
         saved_paths.append(save_path)

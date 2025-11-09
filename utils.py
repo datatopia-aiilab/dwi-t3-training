@@ -498,6 +498,421 @@ def print_metrics_table(metrics_dict, title="Metrics"):
     print("="*50 + "\n")
 
 
+# ==================== Advanced Volume & Spatial Metrics ====================
+
+def calculate_infarction_volume(mask, pixel_spacing=4.0, slice_thickness=4.0):
+    """
+    Calculate infarction volume from binary mask
+    
+    Args:
+        mask: Binary mask (H, W) or (1, H, W)
+        pixel_spacing: Pixel spacing in mm (default: 4.0mm)
+        slice_thickness: Slice thickness in mm (default: 4.0mm)
+    
+    Returns:
+        volume_ml: Volume in milliliters (ml)
+    """
+    # Handle shape
+    if len(mask.shape) == 3:
+        if mask.shape[0] == 1:
+            mask = mask[0]
+    
+    # Count non-zero voxels
+    voxel_count = np.sum(mask > 0)
+    
+    # Calculate volume in mm³
+    voxel_volume_mm3 = pixel_spacing * pixel_spacing * slice_thickness
+    total_volume_mm3 = voxel_count * voxel_volume_mm3
+    
+    # Convert to ml (1 ml = 1000 mm³)
+    volume_ml = total_volume_mm3 / 1000.0
+    
+    return volume_ml
+
+
+def calculate_hausdorff_distance(pred, target, percentile=95):
+    """
+    Calculate Hausdorff Distance (HD95) between prediction and target
+    
+    Args:
+        pred: Binary prediction mask
+        target: Binary ground truth mask
+        percentile: Percentile for robust HD (default: 95)
+    
+    Returns:
+        hd95: Hausdorff distance at 95th percentile (in pixels)
+    """
+    try:
+        # Handle shape
+        if len(pred.shape) == 3 and pred.shape[0] == 1:
+            pred = pred[0]
+        if len(target.shape) == 3 and target.shape[0] == 1:
+            target = target[0]
+        
+        # Get boundary points
+        pred_points = np.argwhere(pred > 0)
+        target_points = np.argwhere(target > 0)
+        
+        if len(pred_points) == 0 or len(target_points) == 0:
+            return float('inf')  # No overlap
+        
+        # Calculate distances
+        distances_pred_to_target = np.min(
+            np.sqrt(np.sum((pred_points[:, None, :] - target_points[None, :, :]) ** 2, axis=2)),
+            axis=1
+        )
+        distances_target_to_pred = np.min(
+            np.sqrt(np.sum((target_points[:, None, :] - pred_points[None, :, :]) ** 2, axis=2)),
+            axis=1
+        )
+        
+        # Get 95th percentile
+        hd95 = max(
+            np.percentile(distances_pred_to_target, percentile),
+            np.percentile(distances_target_to_pred, percentile)
+        )
+        
+        return hd95
+        
+    except Exception as e:
+        return None  # Error
+
+
+def calculate_average_surface_distance(pred, target):
+    """
+    Calculate Average Surface Distance (ASD)
+    
+    Args:
+        pred: Binary prediction mask
+        target: Binary ground truth mask
+    
+    Returns:
+        asd: Average surface distance (in pixels)
+    """
+    try:
+        from scipy.ndimage import distance_transform_edt, binary_erosion
+        
+        # Handle shape
+        if len(pred.shape) == 3 and pred.shape[0] == 1:
+            pred = pred[0]
+        if len(target.shape) == 3 and target.shape[0] == 1:
+            target = target[0]
+        
+        # Get boundaries (surface)
+        pred_border = pred.astype(bool) ^ binary_erosion(pred.astype(bool))
+        target_border = target.astype(bool) ^ binary_erosion(target.astype(bool))
+        
+        # Distance transforms
+        pred_dt = distance_transform_edt(~pred_border)
+        target_dt = distance_transform_edt(~target_border)
+        
+        # Average distances
+        pred_surface_distances = pred_dt[target_border]
+        target_surface_distances = target_dt[pred_border]
+        
+        if len(pred_surface_distances) == 0 or len(target_surface_distances) == 0:
+            return float('inf')
+        
+        asd = (pred_surface_distances.sum() + target_surface_distances.sum()) / \
+              (len(pred_surface_distances) + len(target_surface_distances))
+        
+        return asd
+        
+    except Exception as e:
+        return None  # Error
+
+
+# ==================== Enhanced Visualization ====================
+
+def plot_training_curves_advanced(history, best_epoch=None, save_path=None):
+    """
+    Plot professional training curves with dual y-axis
+    
+    Args:
+        history: dict with keys ['train_loss', 'val_loss', 'train_dice', 'val_dice']
+        best_epoch: int, epoch with best validation score (optional)
+        save_path: Path to save the plot (optional)
+    
+    Returns:
+        fig: matplotlib figure
+    """
+    fig, ax1 = plt.subplots(figsize=(15, 6))
+    
+    epochs = np.arange(1, len(history['train_loss']) + 1)
+    
+    # Colors (professional palette)
+    color_train_loss = '#2E86DE'  # Blue
+    color_val_loss = '#EE5A6F'    # Red
+    color_train_dice = '#26DE81'  # Green
+    color_val_dice = '#FD79A8'    # Pink
+    
+    # Primary y-axis: Loss
+    ax1.set_xlabel('Epoch', fontsize=14, fontweight='bold')
+    ax1.set_ylabel('Loss', fontsize=14, fontweight='bold', color='black')
+    
+    line1 = ax1.plot(epochs, history['train_loss'], color=color_train_loss, 
+                     linewidth=2.5, label='Train Loss', alpha=0.8)
+    line2 = ax1.plot(epochs, history['val_loss'], color=color_val_loss, 
+                     linewidth=2.5, label='Val Loss', alpha=0.8)
+    
+    ax1.tick_params(axis='y', labelcolor='black', labelsize=12)
+    ax1.grid(True, alpha=0.3, linestyle='--')
+    
+    # Secondary y-axis: Dice Score
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('Dice Score', fontsize=14, fontweight='bold', color='black')
+    
+    line3 = ax2.plot(epochs, history['train_dice'], color=color_train_dice, 
+                     linewidth=2.5, label='Train Dice', alpha=0.8, linestyle='--')
+    line4 = ax2.plot(epochs, history['val_dice'], color=color_val_dice, 
+                     linewidth=2.5, label='Val Dice', alpha=0.8, linestyle='--')
+    
+    ax2.tick_params(axis='y', labelcolor='black', labelsize=12)
+    ax2.set_ylim([0, 1.0])
+    
+    # Mark best epoch
+    if best_epoch is not None:
+        ax1.axvline(x=best_epoch, color='gray', linestyle=':', linewidth=2, alpha=0.7)
+        ax1.text(best_epoch, ax1.get_ylim()[1] * 0.95, f'Best: {best_epoch}', 
+                ha='center', va='top', fontsize=11, 
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # Combined legend
+    lines = line1 + line2 + line3 + line4
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc='upper right', fontsize=12, framealpha=0.9)
+    
+    # Title
+    plt.title('Training History: Loss & Dice Score', fontsize=16, fontweight='bold', pad=20)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Advanced training curves saved to {save_path}")
+    
+    return fig
+
+
+def visualize_sample_advanced(image, mask, prediction, filename="", 
+                             pixel_spacing=4.0, slice_thickness=4.0, save_path=None):
+    """
+    Advanced visualization with 4 panels: Original, GT, Prediction, Overlap
+    
+    Args:
+        image: 2D/2.5D image
+        mask: Ground truth mask
+        prediction: Predicted mask
+        filename: Sample filename
+        pixel_spacing: Pixel spacing in mm
+        slice_thickness: Slice thickness in mm
+        save_path: Path to save figure
+    
+    Returns:
+        fig: matplotlib figure
+    """
+    # Handle shapes
+    if len(image.shape) == 3:
+        if image.shape[0] == 3:
+            image = image[1, :, :]  # Middle slice
+        elif image.shape[-1] == 3:
+            image = image[:, :, 1]
+        elif image.shape[0] == 1:
+            image = image[0, :, :]
+    
+    if len(mask.shape) == 3 and mask.shape[0] == 1:
+        mask = mask[0, :, :]
+    if len(prediction.shape) == 3 and prediction.shape[0] == 1:
+        prediction = prediction[0, :, :]
+    
+    # Normalize image
+    image_display = (image - image.min()) / (image.max() - image.min() + 1e-8)
+    
+    # Calculate volumes
+    gt_volume = calculate_infarction_volume(mask, pixel_spacing, slice_thickness)
+    pred_volume = calculate_infarction_volume(prediction, pixel_spacing, slice_thickness)
+    volume_error = abs(pred_volume - gt_volume) / (gt_volume + 1e-6) * 100
+    
+    # Calculate overlap metrics
+    tp = np.logical_and(mask > 0, prediction > 0).sum()
+    fp = np.logical_and(mask == 0, prediction > 0).sum()
+    fn = np.logical_and(mask > 0, prediction == 0).sum()
+    
+    # Create figure
+    fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+    
+    # Panel 1: Original Image
+    axes[0].imshow(image_display, cmap='gray')
+    axes[0].set_title('Original DWI', fontsize=13, fontweight='bold', pad=10)
+    axes[0].axis('off')
+    
+    # Panel 2: Ground Truth
+    axes[1].imshow(image_display, cmap='gray')
+    if mask.max() > 0:
+        # Red contour
+        axes[1].contour(mask, levels=[0.5], colors='red', linewidths=2.5, alpha=0.9)
+    axes[1].set_title(f'Ground Truth\nVolume: {gt_volume:.2f} ml', 
+                     fontsize=13, fontweight='bold', pad=10, color='#C0392B')
+    axes[1].axis('off')
+    
+    # Panel 3: Prediction
+    axes[2].imshow(image_display, cmap='gray')
+    if prediction.max() > 0:
+        # Blue fill
+        pred_overlay = np.zeros((*prediction.shape, 4))
+        pred_overlay[prediction > 0] = [0, 0, 1, 0.6]  # Blue with alpha
+        axes[2].imshow(pred_overlay)
+    axes[2].set_title(f'Prediction\nVolume: {pred_volume:.2f} ml\nError: {volume_error:.1f}%', 
+                     fontsize=13, fontweight='bold', pad=10, color='#2980B9')
+    axes[2].axis('off')
+    
+    # Panel 4: Overlap Analysis
+    axes[3].imshow(image_display, cmap='gray')
+    
+    # Create overlay with different colors
+    overlap_img = np.zeros((*mask.shape, 4))
+    
+    # True Positive (both GT and Pred) - Purple
+    overlap_img[np.logical_and(mask > 0, prediction > 0)] = [0.5, 0, 0.5, 0.8]
+    
+    # False Positive (Pred only) - Blue
+    overlap_img[np.logical_and(mask == 0, prediction > 0)] = [0, 0, 1, 0.6]
+    
+    # False Negative (GT only) - Red  
+    overlap_img[np.logical_and(mask > 0, prediction == 0)] = [1, 0, 0, 0.6]
+    
+    axes[3].imshow(overlap_img)
+    axes[3].set_title(f'Overlap Analysis\nTP: {tp} | FP: {fp} | FN: {fn}', 
+                     fontsize=13, fontweight='bold', pad=10, color='#8E44AD')
+    axes[3].axis('off')
+    
+    # Overall title
+    if filename:
+        fig.suptitle(f'{filename}', fontsize=15, fontweight='bold', y=0.98)
+    
+    # Legend for overlap
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=[0.5, 0, 0.5, 0.8], label='True Positive'),
+        Patch(facecolor=[0, 0, 1, 0.6], label='False Positive'),
+        Patch(facecolor=[1, 0, 0, 0.6], label='False Negative')
+    ]
+    axes[3].legend(handles=legend_elements, loc='lower right', fontsize=9, framealpha=0.9)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    return fig
+
+
+def create_bland_altman_plot(gt_volumes, pred_volumes, save_path=None):
+    """
+    Create Bland-Altman plot for volume agreement analysis
+    
+    Args:
+        gt_volumes: List of ground truth volumes
+        pred_volumes: List of predicted volumes
+        save_path: Path to save plot
+    
+    Returns:
+        fig: matplotlib figure
+    """
+    gt_volumes = np.array(gt_volumes)
+    pred_volumes = np.array(pred_volumes)
+    
+    # Calculate mean and difference
+    mean_volumes = (gt_volumes + pred_volumes) / 2
+    diff_volumes = pred_volumes - gt_volumes
+    
+    # Calculate statistics
+    mean_diff = np.mean(diff_volumes)
+    std_diff = np.std(diff_volumes)
+    
+    # Create plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Scatter plot
+    ax.scatter(mean_volumes, diff_volumes, alpha=0.6, s=50, color='#3498DB')
+    
+    # Mean line
+    ax.axhline(mean_diff, color='#E74C3C', linestyle='--', linewidth=2, 
+              label=f'Mean: {mean_diff:.2f} ml')
+    
+    # Limits of agreement
+    ax.axhline(mean_diff + 1.96*std_diff, color='#95A5A6', linestyle=':', linewidth=2,
+              label=f'+1.96 SD: {mean_diff + 1.96*std_diff:.2f} ml')
+    ax.axhline(mean_diff - 1.96*std_diff, color='#95A5A6', linestyle=':', linewidth=2,
+              label=f'-1.96 SD: {mean_diff - 1.96*std_diff:.2f} ml')
+    
+    ax.set_xlabel('Mean Volume [(GT + Pred) / 2] (ml)', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Difference [Pred - GT] (ml)', fontsize=13, fontweight='bold')
+    ax.set_title('Bland-Altman Plot: Volume Agreement Analysis', 
+                fontsize=15, fontweight='bold', pad=15)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=11, loc='best')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Bland-Altman plot saved to {save_path}")
+    
+    return fig
+
+
+def create_volume_correlation_plot(gt_volumes, pred_volumes, save_path=None):
+    """
+    Create scatter plot showing volume correlation
+    
+    Args:
+        gt_volumes: List of ground truth volumes
+        pred_volumes: List of predicted volumes
+        save_path: Path to save plot
+    
+    Returns:
+        fig: matplotlib figure
+    """
+    gt_volumes = np.array(gt_volumes)
+    pred_volumes = np.array(pred_volumes)
+    
+    # Calculate correlation
+    correlation = np.corrcoef(gt_volumes, pred_volumes)[0, 1]
+    
+    # Create plot
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Scatter plot
+    ax.scatter(gt_volumes, pred_volumes, alpha=0.6, s=70, color='#3498DB', edgecolors='black', linewidth=0.5)
+    
+    # Identity line
+    max_val = max(gt_volumes.max(), pred_volumes.max())
+    ax.plot([0, max_val], [0, max_val], 'r--', linewidth=2, label='Perfect Agreement', alpha=0.7)
+    
+    # Regression line
+    z = np.polyfit(gt_volumes, pred_volumes, 1)
+    p = np.poly1d(z)
+    ax.plot(gt_volumes, p(gt_volumes), 'g-', linewidth=2, alpha=0.7, 
+           label=f'Regression: y={z[0]:.2f}x+{z[1]:.2f}')
+    
+    ax.set_xlabel('Ground Truth Volume (ml)', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Predicted Volume (ml)', fontsize=13, fontweight='bold')
+    ax.set_title(f'Volume Correlation Analysis\nCorrelation: {correlation:.3f}', 
+                fontsize=15, fontweight='bold', pad=15)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=11, loc='upper left')
+    ax.set_aspect('equal', adjustable='box')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Volume correlation plot saved to {save_path}")
+    
+    return fig
+
+
 # ==================== Testing Functions ====================
 
 def test_utils():
