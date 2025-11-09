@@ -111,8 +111,8 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates (for attention_un
 
 # ==================== Training Parameters ====================
 # Basic training settings
-NUM_EPOCHS = 2  # ⬇️ Quick test with 2 epochs
-BATCH_SIZE = 4  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
+NUM_EPOCHS = 200  # ⬇️ Quick test with 2 epochs
+BATCH_SIZE = 32  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
