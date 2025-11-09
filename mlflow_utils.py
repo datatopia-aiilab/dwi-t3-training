@@ -70,6 +70,8 @@ def setup_mlflow(cfg, model_params=None):
         
         # Log basic tags
         mlflow.set_tag("mlflow.runName", run_name)
+        mlflow.set_tag("run_id", run.info.run_id)  # ⭐ Add full run_id as tag
+        mlflow.set_tag("run_id_short", run.info.run_id[:8])  # ⭐ Add short version
         mlflow.set_tag("architecture", cfg.MODEL_ARCHITECTURE)
         mlflow.set_tag("augmentation", "enabled" if cfg.AUGMENTATION_ENABLED else "disabled")
         mlflow.set_tag("loss_type", cfg.LOSS_TYPE)

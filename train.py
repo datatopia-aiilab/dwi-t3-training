@@ -308,6 +308,37 @@ def train_model(cfg):
     # Initialize MLflow tracking
     mlflow_run = setup_mlflow(cfg, model_params)
     
+    # Clean old predictions and create run-specific directory
+    print("\n🗑️  Preparing prediction directory...")
+    if cfg.MLFLOW_ENABLED and mlflow_run:
+        # Create run-specific subdirectory
+        run_id = mlflow_run.info.run_id[:8]  # First 8 chars of run_id
+        run_predictions_dir = cfg.PREDICTIONS_DIR / f"run_{run_id}"
+        run_predictions_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Clean old files in run directory (in case of restart)
+        old_files = list(run_predictions_dir.glob("*.png"))
+        if old_files:
+            for f in old_files:
+                f.unlink()
+            print(f"   🗑️  Cleaned {len(old_files)} old prediction images from this run")
+        
+        # Update config to use run-specific directory
+        cfg.PREDICTIONS_DIR = run_predictions_dir
+        print(f"   📁 Predictions will be saved to: {run_predictions_dir.name}/")
+    else:
+        # If MLflow disabled, clean old predictions from main directory
+        old_files = list(cfg.PREDICTIONS_DIR.glob("*.png"))
+        if old_files:
+            print(f"   🗑️  Found {len(old_files)} old prediction images")
+            response = input("   ⚠️  Delete old predictions? (y/n): ").lower()
+            if response == 'y':
+                for f in old_files:
+                    f.unlink()
+                print(f"   ✅ Cleaned {len(old_files)} old prediction images")
+            else:
+                print(f"   ⏭️  Keeping old predictions (may cause confusion)")
+    
     # Create loss function
     print("\n📉 Creating loss function...")
     criterion = get_loss_function(
@@ -720,10 +751,15 @@ def train_model(cfg):
         print(f"\n   Prediction Images (4-panel layout with volumes):")
         pred_images = list(cfg.PREDICTIONS_DIR.glob("*.png"))
         if pred_images:
-            print(f"      ✅ ALL {len(pred_images)} test samples visualized in {cfg.PREDICTIONS_DIR}")
+            # Show relative path from project root for clarity
+            rel_path = cfg.PREDICTIONS_DIR.relative_to(cfg.PROJECT_ROOT)
+            print(f"      ✅ ALL {len(pred_images)} test samples visualized")
+            print(f"      📁 Location: {rel_path}/")
             print(f"         - Format: 4 panels (Original | GT+Volume | Pred+Volume | Overlap)")
             print(f"         - Resolution: 300 DPI")
             print(f"         - Example: {pred_images[0].name}")
+            if mlflow_run:
+                print(f"         - Run ID: {mlflow_run.info.run_id[:8]}")
         else:
             print(f"      ❌ No images found in {cfg.PREDICTIONS_DIR}")
         

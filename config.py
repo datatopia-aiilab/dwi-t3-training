@@ -28,6 +28,9 @@ PROCESSED_TEST_MASK = DATA_PROCESSED / "test" / "masks"
 # Results subdirectories
 PLOTS_DIR = RESULTS_DIR / "plots"
 PREDICTIONS_DIR = RESULTS_DIR / "predictions"
+# Note: PREDICTIONS_DIR will be updated to run-specific subfolder during training
+# e.g., predictions/run_a1b2c3d4/ to separate predictions from different training runs
+# This prevents mixing predictions from multiple experiments
 
 # ==================== Data Parameters ====================
 # Image specifications
@@ -114,7 +117,7 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates (for attention_un
 # Multiple can be enabled simultaneously
 
 # Squeeze-and-Excitation (SE) Block
-USE_SE_ATTENTION = False  # ✅ Very lightweight (~0.1M params), channel attention
+USE_SE_ATTENTION = True  # ✅ Very lightweight (~0.1M params), channel attention
                           # Best for: Quick improvement with minimal overhead
                           # Expected gain: +1-2% Dice
 
@@ -129,7 +132,7 @@ USE_ECA_ATTENTION = False  # ✅ More efficient than SE, no reduction
                            # Expected gain: +1-2% Dice
 
 # Dual Attention (Position + Channel)
-USE_DUAL_ATTENTION = True  # ⚠️ Expensive (~2-3M params), applied at bottleneck only
+USE_DUAL_ATTENTION = False  # ⚠️ Expensive (~2-3M params), applied at bottleneck only
                             # Best for: Long-range dependencies, medical imaging
                             # Expected gain: +3-5% Dice
                             # Note: Only applied to layers with >=256 channels
@@ -326,12 +329,21 @@ MLFLOW_TRACKING_URI = str(PROJECT_ROOT / "mlruns")  # Local tracking directory
 MLFLOW_EXPERIMENT_NAME = f"DWI-NOV-{MODEL_ARCHITECTURE}"  # ชื่อ experiment
 MLFLOW_RUN_NAME = None  # None = auto-generate (e.g., "unet++_resnet34_20250108_143022")
 
+# MLflow Run Isolation
+# แต่ละ training run จะมี:
+# 1. Unique run_id (e.g., a1b2c3d4e5f6g7h8)
+# 2. Separate prediction folder: predictions/run_{run_id[:8]}/
+# 3. Independent metrics, parameters, and artifacts in MLflow
+# 4. No cross-contamination between runs
+# → แต่ละ run เป็นอิสระ ไม่มีการเก็บข้อมูลข้าม run กัน
+
 # MLflow Tags (จะถูกเพิ่มใน run automatically)
 # - architecture: MODEL_ARCHITECTURE
 # - encoder: ENCODER_NAME (for SMP models)
 # - pretrained: "yes" / "no"
 # - augmentation: "enabled" / "disabled"
 # - loss_type: LOSS_TYPE
+# - run_id: Unique identifier for this training run
 
 # ==================== Helper Functions ====================
 def create_directories():
