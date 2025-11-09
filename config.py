@@ -82,7 +82,7 @@ OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
 #   'manet'          - Multi-Attention Network (~22M params)
 #   'pspnet'         - Pyramid Scene Parsing Network (~45M params)
 
-MODEL_ARCHITECTURE = 'unet++'  # ⭐ เปลี่ยนเป็น UNet++ (รองรับ DenseNet)
+MODEL_ARCHITECTURE = 'attention_unet'  # ⭐ เปลี่ยนเป็น UNet++ (รองรับ DenseNet)
                                # DeepLabV3+ ใช้กับ DenseNet ไม่ได้เพราะต้องการ dilated convolutions
 
 # ⚠️ COMPATIBILITY NOTE:
