@@ -78,11 +78,28 @@ OUT_CHANNELS = 1  # Binary segmentation (background vs lesion)
 #   'attention_unet' - Custom Attention U-Net (current baseline, 17.5M params)
 #   'unet++'         - U-Net++ with nested skip connections (~20M params)
 #   'fpn'            - Feature Pyramid Network (~25M params)
-#   'deeplabv3+'     - DeepLabV3+ with ASPP (~40M params)
+#   'deeplabv3+'     - DeepLabV3+ with ASPP (~40M params) ⚠️ NOT compatible with DenseNet!
 #   'manet'          - Multi-Attention Network (~22M params)
 #   'pspnet'         - Pyramid Scene Parsing Network (~45M params)
 
-MODEL_ARCHITECTURE = 'deeplabv3+'  # เปลี่ยนตรงนี้เพื่อใช้ architecture อื่น
+MODEL_ARCHITECTURE = 'unet++'  # ⭐ เปลี่ยนเป็น UNet++ (รองรับ DenseNet)
+                               # DeepLabV3+ ใช้กับ DenseNet ไม่ได้เพราะต้องการ dilated convolutions
+
+# ⚠️ COMPATIBILITY NOTE:
+# DeepLabV3+ requires dilated mode → Only works with: ResNet, ResNeXt, EfficientNet, SE-ResNet
+# DenseNet uses pooling for downsampling → Cannot be dilated
+# 
+# If you want DeepLabV3+, use these encoders:
+#   - resnet34, resnet50, resnet101
+#   - resnext50_32x4d
+#   - efficientnet-b0, efficientnet-b3, efficientnet-b5
+#   - se_resnet50, se_resnext50_32x4d
+#
+# If you want DenseNet, use these architectures:
+#   - unet++ ⭐ (แนะนำ - nested skip connections)
+#   - fpn (feature pyramid)
+#   - manet (multi-attention)
+#   - pspnet (pyramid pooling)
 
 # ==================== Encoder Selection (for SMP models) ====================
 # Available encoders (when using unet++, fpn, deeplabv3+, manet, pspnet):
