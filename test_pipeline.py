@@ -11,7 +11,7 @@ import sys
 
 # Import our modules
 import config
-from utils import build_slice_mapping, calculate_all_metrics, visualize_sample
+from utils import build_slice_mapping, calculate_all_metrics, visualize_sample_advanced
 from loss import get_loss_function
 from model import get_attention_unet
 from dataset import DWIDataset25D, get_validation_augmentation
@@ -293,7 +293,18 @@ def test_visualization():
     mask = np.random.rand(128, 128) > 0.7
     prediction = np.random.rand(128, 128) > 0.6
     
-    fig = visualize_sample(image, mask, prediction, title="Test Sample")
+    # Calculate volumes for visualization
+    pixel_spacing = 4.0  # mm
+    gt_volume_ml = np.sum(mask) * (pixel_spacing ** 2) * 1.0 / 1000
+    pred_volume_ml = np.sum(prediction) * (pixel_spacing ** 2) * 1.0 / 1000
+    
+    fig = visualize_sample_advanced(
+        image, mask, prediction, 
+        filename="Test Sample",
+        gt_volume_ml=gt_volume_ml,
+        pred_volume_ml=pred_volume_ml,
+        pixel_spacing=pixel_spacing
+    )
     
     # Save figure
     test_viz_path = config.RESULTS_DIR / "test_visualization.png"
