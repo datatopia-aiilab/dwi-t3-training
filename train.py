@@ -82,7 +82,7 @@ class EarlyStopping:
             return False
 
 
-def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg, scaler=None):
+def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg, scaler=None, scheduler=None, scheduler_metadata=None):
     """
     Train for one epoch
     
@@ -95,6 +95,8 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg,
         epoch: Current epoch number
         cfg: Configuration module
         scaler: GradScaler for mixed precision (optional)
+        scheduler: Learning rate scheduler (optional, for per-batch stepping)
+        scheduler_metadata: Dict with scheduler properties (optional)
     
     Returns:
         dict: {'loss': float, 'dice': float}
@@ -160,6 +162,11 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg,
         # Update running metrics
         running_loss += loss.item()
         running_dice += batch_dice
+        
+        # Per-batch scheduler step (for OneCycleLR)
+        if scheduler is not None and scheduler_metadata is not None:
+            if scheduler_metadata.get('step_per_batch', False):
+                scheduler.step()
         
         # Update progress bar
         pbar.set_postfix({
@@ -336,7 +343,66 @@ def train_model(cfg):
     
     # Create learning rate scheduler
     print("\n📊 Creating LR scheduler...")
-    if cfg.SCHEDULER.lower() == 'reduce_on_plateau':
+    
+    # Import advanced schedulers
+    # Advanced schedulers help with training stability, especially with attention mechanisms:
+    # - warmup_cosine: Prevents early instability (recommended for attention)
+    # - adaptive: Auto-handles NaN and plateaus
+    # - cosine_restarts: Escapes local minima with periodic restarts
+    # - onecycle: Super-convergence for faster training
+    # - polynomial: Smooth decay for fine-tuning
+    # - exponential: Standard exponential decay
+    try:
+        from lr_schedulers import get_advanced_scheduler, SCHEDULER_GUIDE
+        advanced_available = True
+    except ImportError:
+        advanced_available = False
+        print("   ⚠️  Advanced schedulers not available, using standard schedulers")
+    
+    scheduler_metadata = {}
+    warmup_scheduler = None
+    
+    # Check if advanced scheduler requested
+    if advanced_available and cfg.SCHEDULER.lower() in ['warmup_cosine', 'cosine_restarts', 
+                                                         'one_cycle', 'polynomial', 
+                                                         'adaptive', 'exponential']:
+        # Use advanced scheduler
+        try:
+            # Store train loader size for one_cycle
+            cfg._train_loader_size = len(train_loader)
+            
+            result, metadata = get_advanced_scheduler(optimizer, cfg.SCHEDULER.lower(), cfg)
+            scheduler_metadata = metadata
+            
+            # Handle warmup_cosine which returns dict
+            if isinstance(result, dict):
+                warmup_scheduler = result['warmup']
+                scheduler = result['main']
+                print(f"   Scheduler: {metadata['description']}")
+                print(f"   ├─ Warmup: {cfg.WARMUP_EPOCHS} epochs (0 → {cfg.LEARNING_RATE})")
+                print(f"   ├─ Main: CosineAnnealing (T_max={cfg.NUM_EPOCHS - cfg.WARMUP_EPOCHS})")
+                if metadata.get('step_per_batch'):
+                    print(f"   └─ Steps per batch: Yes")
+                else:
+                    print(f"   └─ Steps per epoch: Yes")
+            else:
+                scheduler = result
+                print(f"   Scheduler: {metadata['description']}")
+                if metadata.get('step_per_batch'):
+                    print(f"   └─ Steps per batch: Yes")
+                elif metadata.get('requires_metric'):
+                    print(f"   └─ Metric-based: Yes (uses validation Dice)")
+                else:
+                    print(f"   └─ Steps per epoch: Yes")
+                
+        except Exception as e:
+            print(f"   ⚠️  Error creating advanced scheduler: {e}")
+            print(f"   Falling back to CosineAnnealingLR")
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=cfg.NUM_EPOCHS, eta_min=cfg.SCHEDULER_MIN_LR
+            )
+    
+    elif cfg.SCHEDULER.lower() == 'reduce_on_plateau':
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode='max',  # Maximize validation Dice
@@ -347,6 +413,8 @@ def train_model(cfg):
         print(f"   Scheduler: ReduceLROnPlateau")
         print(f"   Patience: {cfg.SCHEDULER_PATIENCE} epochs")
         print(f"   Factor: {cfg.SCHEDULER_FACTOR}")
+        scheduler_metadata = {'type': 'reduce_on_plateau', 'requires_metric': True}
+        
     elif cfg.SCHEDULER.lower() == 'cosine':
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
@@ -354,9 +422,12 @@ def train_model(cfg):
             eta_min=cfg.SCHEDULER_MIN_LR
         )
         print(f"   Scheduler: CosineAnnealingLR")
+        scheduler_metadata = {'type': 'cosine', 'requires_metric': False}
+        
     else:
         scheduler = None
         print(f"   Scheduler: None")
+        scheduler_metadata = {'type': 'none', 'requires_metric': False}
     
     # Create early stopping
     early_stopping = EarlyStopping(
@@ -400,9 +471,10 @@ def train_model(cfg):
         # Get current learning rate
         current_lr = optimizer.param_groups[0]['lr']
         
-        # Train one epoch
+        # Train one epoch (pass scheduler for per-batch stepping if needed)
         train_metrics = train_one_epoch(
-            model, train_loader, criterion, optimizer, device, epoch, cfg, scaler
+            model, train_loader, criterion, optimizer, device, epoch, cfg, scaler,
+            scheduler=scheduler, scheduler_metadata=scheduler_metadata
         )
         
         # Validate
@@ -412,8 +484,17 @@ def train_model(cfg):
         
         # Update scheduler
         if scheduler is not None:
-            if cfg.SCHEDULER.lower() == 'reduce_on_plateau':
+            # Handle warmup phase
+            if epoch < cfg.WARMUP_EPOCHS and warmup_scheduler is not None:
+                warmup_scheduler.step(epoch)
+                print(f"  [Warmup] Epoch {epoch}/{cfg.WARMUP_EPOCHS}, LR: {optimizer.param_groups[0]['lr']:.6f}")
+            # Handle schedulers that require metrics
+            elif scheduler_metadata.get('requires_metric', False):
                 scheduler.step(val_metrics['dice'])
+            # Handle per-batch schedulers (OneCycleLR already steps in train_one_epoch)
+            elif scheduler_metadata.get('step_per_batch', False):
+                pass  # Already stepped during training
+            # Regular epoch-based schedulers
             else:
                 scheduler.step()
         

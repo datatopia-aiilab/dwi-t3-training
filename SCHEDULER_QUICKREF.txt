@@ -1,0 +1,72 @@
+"""
+QUICK REFERENCE: Learning Rate Schedulers
+==========================================
+
+CURRENT CONFIGURATION (config.py):
+-----------------------------------
+SCHEDULER = 'warmup_cosine'  ⭐ Recommended for attention
+WARMUP_EPOCHS = 5
+LEARNING_RATE = 0.001
+GRADIENT_CLIP_VALUE = 0.5
+
+AVAILABLE SCHEDULERS:
+---------------------
+
+1. warmup_cosine     → Prevents early instability (⭐ USE THIS)
+2. cosine_restarts   → Escapes local minima
+3. onecycle          → Faster training
+4. adaptive          → Auto-handles NaN
+5. polynomial        → Smooth decay
+6. exponential       → Classic approach
+7. cosine           → Simple cosine (no warmup)
+8. reduce_on_plateau → Reduces on plateau
+
+QUICK CHANGES:
+--------------
+
+To try adaptive (if still getting NaN):
+    SCHEDULER = 'adaptive'
+
+To try faster training:
+    SCHEDULER = 'onecycle'
+    LEARNING_RATE = 0.01  # Higher!
+
+To try cosine restarts:
+    SCHEDULER = 'cosine_restarts'
+    FIRST_CYCLE_EPOCHS = 30
+
+TESTING:
+--------
+python test_schedulers.py    # Test all schedulers
+python train.py               # Start training
+mlflow ui --port 5000         # Monitor results
+
+MONITORING:
+-----------
+✓ Check for NaN during epochs 0-5 (should be none)
+✓ Watch LR in logs (should gradually increase)
+✓ Monitor loss curve (should be smooth)
+✓ Track validation Dice (should improve)
+
+TROUBLESHOOTING:
+----------------
+Still NaN?
+  → Increase WARMUP_EPOCHS to 10
+  → Reduce GRADIENT_CLIP_VALUE to 0.1
+  → Try SCHEDULER = 'adaptive'
+
+Too slow?
+  → Try SCHEDULER = 'onecycle'
+  → Reduce WARMUP_EPOCHS to 2
+
+Stuck at plateau?
+  → Try SCHEDULER = 'cosine_restarts'
+
+IMPLEMENTATION FILES:
+---------------------
+lr_schedulers.py              # All scheduler implementations
+config.py                     # Configuration
+train.py                      # Training with schedulers
+test_schedulers.py            # Test script
+SCHEDULER_IMPLEMENTATION.txt  # Full documentation
+"""

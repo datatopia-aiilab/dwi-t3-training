@@ -161,10 +161,92 @@ GRADIENT_CLIP_VALUE = 0.5  # ⬇️ ลดลงจาก 1.0 → 0.5 เพื�
                             # ถ้ายังเจอ NaN ให้ลดเป็น 0.1
 
 # Learning rate scheduler
-SCHEDULER = 'cosine'  # 'reduce_on_plateau' or 'cosine'
-SCHEDULER_PATIENCE = 12  # ⬆️ เพิ่มขึ้น (เพื่อให้มีเวลาเรียนรู้มากขึ้น)
-SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
-SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
+# Available: 'cosine', 'reduce_on_plateau', 'warmup_cosine', 'cosine_restarts', 
+#            'one_cycle', 'polynomial', 'adaptive', 'exponential'
+SCHEDULER = 'warmup_cosine'  # ⭐ แนะนำสำหรับ attention mechanisms
+
+# Scheduler parameters (used by different schedulers)
+SCHEDULER_PATIENCE = 12  # For 'reduce_on_plateau', 'adaptive'
+SCHEDULER_FACTOR = 0.5  # LR reduction factor
+SCHEDULER_MIN_LR = 1e-7  # Minimum LR for all schedulers
+
+# Warmup settings (for 'warmup_cosine', 'cosine_restarts')
+WARMUP_EPOCHS = 5  # Number of warmup epochs (0 = no warmup)
+                   # Recommended: 5-10 for attention, 0-3 for standard models
+
+# Cosine Restarts settings (for 'cosine_restarts')
+FIRST_CYCLE_EPOCHS = 50  # Length of first cycle
+CYCLE_MULT = 1  # Multiply cycle length: 1=same, 2=double each time
+
+# Polynomial decay settings (for 'polynomial')
+POLY_POWER = 2.0  # Polynomial power (1.0=linear, 2.0=quadratic)
+
+# Exponential decay settings (for 'exponential')
+EXP_GAMMA = 0.95  # Decay factor per epoch (0.9-0.99)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SCHEDULER STRATEGY GUIDE
+# ═══════════════════════════════════════════════════════════════════════════
+# 
+# PROBLEM: NaN loss at epoch 101 with CBAM attention
+# CAUSE: Attention mechanisms amplify gradients → instability with fixed LR
+# 
+# SOLUTION STRATEGY (3-layer defense):
+# ------------------------------------
+# 1. NUMERICAL STABILITY (✅ Already implemented):
+#    - BatchNorm in all attention modules
+#    - Gradient clipping (GRADIENT_CLIP_VALUE=0.5)
+#    - Residual scaling (scale=0.1 in CBAM/SE)
+#    - Output clamping before sigmoid
+# 
+# 2. ADVANCED LR SCHEDULING (✅ Just added):
+#    - Warmup phase prevents early instability
+#    - Adaptive strategies handle loss spikes
+#    - Multiple options for different scenarios
+# 
+# 3. MONITORING & RECOVERY (✅ Available):
+#    - nan_detector.py for debugging
+#    - AdaptiveScheduler auto-recovers from NaN
+#    - Early stopping prevents waste
+# 
+# RECOMMENDED CONFIGURATIONS:
+# ---------------------------
+# 
+# For Attention Models (Current Setup):
+#   SCHEDULER = 'warmup_cosine'
+#   WARMUP_EPOCHS = 5
+#   LEARNING_RATE = 0.001
+#   → Best stability, smooth convergence
+# 
+# If Still Getting NaN:
+#   SCHEDULER = 'adaptive'
+#   GRADIENT_CLIP_VALUE = 0.1  # More aggressive
+#   → Auto-handles loss spikes
+# 
+# For Faster Training:
+#   SCHEDULER = 'onecycle'
+#   LEARNING_RATE = 0.01  # Higher than normal
+#   NUM_EPOCHS = 100  # Fewer epochs needed
+#   → Super-convergence approach
+# 
+# If Stuck at Plateau:
+#   SCHEDULER = 'cosine_restarts'
+#   FIRST_CYCLE_EPOCHS = 30
+#   CYCLE_MULT = 2
+#   → Periodic LR resets escape local minima
+# 
+# For Fine-Tuning:
+#   SCHEDULER = 'polynomial'
+#   POLY_POWER = 2.0
+#   LEARNING_RATE = 0.0001  # Lower
+#   → Smooth, predictable decay
+# 
+# TESTING RESULTS:
+# ----------------
+# Before: NaN at epoch 101 (Val Dice: 0.5479)
+# After:  Testing with warmup_cosine + stability fixes
+#         Expected: Stable training to epoch 200+
+# ═══════════════════════════════════════════════════════════════════════════
 
 # Loss function  
 LOSS_TYPE = 'dice'  # ⬇️ กลับไปใช้ Dice (Combo ทำ NaN แม้ LR ต่ำ + Gamma 1.5)
