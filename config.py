@@ -45,7 +45,7 @@ VAL_RATIO = 0.20    # 20% ของ (total - test) = 160 slices
 TEST_RATIO = 0.06 # ตายตัว 48 slices (~5.66% ของ total)
 
 # Random seed for reproducibility
-RANDOM_SEED = 10
+RANDOM_SEED = 5
 
 # Minimum slices per patient (for filtering)
 MIN_SLICES_PER_PATIENT = 1  # ตั้งเป็น 1 เพื่อรวมทุก patient (ใช้ zero padding)
@@ -143,7 +143,7 @@ MODEL_ARCHITECTURE = 'attention_unet'  # ⭐ เปลี่ยนเป็น U
 #   - Large dataset (>5000): resnet101, efficientnet-b5, inceptionresnetv2
 #   - Medical imaging: densenet121 (dense connections), se_resnet50 (attention)
 
-ENCODER_NAME = 'densenet121'  # Default encoder for SMP models
+ENCODER_NAME = 'vgg16'  # Default encoder for SMP models
 
 # Pre-trained weights
 ENCODER_WEIGHTS = 'imagenet'  # Options: 'imagenet' (pre-trained), None (random init)
