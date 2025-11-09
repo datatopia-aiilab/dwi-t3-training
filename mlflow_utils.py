@@ -440,7 +440,8 @@ def print_run_info():
 # Convenience function to log everything at the end of training
 def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs, 
                          final_train_metrics, final_val_metrics, training_time,
-                         best_model_path, history_path, curves_path=None):
+                         best_model_path, history_path, 
+                         curves_combined_path=None, curves_separated_path=None):
     """
     Log all final artifacts and metrics when training completes
     
@@ -454,7 +455,8 @@ def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs,
         training_time: Total training time (seconds)
         best_model_path: Path to best model checkpoint
         history_path: Path to training history JSON
-        curves_path: Path to training curves plot (optional)
+        curves_combined_path: Path to combined training curves plot (optional)
+        curves_separated_path: Path to separated training curves plot (optional)
     """
     if not cfg.MLFLOW_ENABLED or not mlflow.active_run():
         return
@@ -479,13 +481,22 @@ def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs,
     print(f"   ⚙️  Logging config file...")
     log_config_file()
     
-    # ⭐ Log training curves if provided
-    if curves_path and Path(curves_path).exists():
-        print(f"   📊 Logging training curves...")
-        mlflow.log_artifact(str(curves_path), artifact_path="plots")
-        print(f"      ✅ Logged: {Path(curves_path).name} → mlflow artifacts/plots/")
-    else:
-        print(f"   ⚠️  Training curves not found: {curves_path}")
+    # ⭐ Log training curves (both versions) if provided
+    print(f"   📊 Logging training curves...")
+    logged_curves = []
+    
+    if curves_combined_path and Path(curves_combined_path).exists():
+        mlflow.log_artifact(str(curves_combined_path), artifact_path="plots")
+        print(f"      ✅ Combined: {Path(curves_combined_path).name}")
+        logged_curves.append(Path(curves_combined_path))
+    
+    if curves_separated_path and Path(curves_separated_path).exists():
+        mlflow.log_artifact(str(curves_separated_path), artifact_path="plots")
+        print(f"      ✅ Separated: {Path(curves_separated_path).name}")
+        logged_curves.append(Path(curves_separated_path))
+    
+    if not logged_curves:
+        print(f"      ⚠️  No training curves found")
     
     # Log any other plots if they exist
     plots_dir = cfg.PLOTS_DIR
@@ -493,7 +504,7 @@ def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs,
         other_plots = 0
         for plot_file in plots_dir.glob("*.png"):
             # Skip if already logged
-            if curves_path and Path(plot_file).samefile(Path(curves_path)):
+            if any(plot_file.samefile(logged) for logged in logged_curves):
                 continue
             log_plot(plot_file)
             other_plots += 1
@@ -707,9 +718,9 @@ def log_complete_evaluation(results, csv_path, images_dir, plots_dir, config):
     print(f"   💾 Logging per-sample CSV...")
     log_per_sample_results_csv(csv_path)
     
-    # Log images (limit to 20 to avoid bloat)
+    # Log ALL images (no limit for complete analysis)
     print(f"   🖼️  Logging prediction images...")
-    log_qualitative_images(images_dir, max_images=20)
+    log_qualitative_images(images_dir, max_images=None)  # ⭐ None = log ALL images
     
     # Log plots
     print(f"   📈 Logging test plots...")

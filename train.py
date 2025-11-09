@@ -22,7 +22,8 @@ from utils import (
     save_training_history, 
     print_metrics_table,
     build_slice_mapping,
-    plot_training_curves_advanced
+    plot_training_curves_advanced,
+    plot_training_curves_separated
 )
 from mlflow_utils import (
     setup_mlflow,
@@ -486,22 +487,35 @@ def train_model(cfg):
     history_path = cfg.RESULTS_DIR / "training_history.json"
     save_training_history(history, history_path)
     
-    # ⭐ Generate advanced training curves BEFORE logging to MLflow
-    print(f"\n📊 Generating advanced training curves...")
-    curves_path = cfg.PLOTS_DIR / 'training_curves_advanced.png'
+    # ⭐ Generate training curves (BOTH versions) BEFORE logging to MLflow
+    print(f"\n📊 Generating training curves...")
+    
+    # Version 1: Combined (dual y-axis)
+    curves_combined_path = cfg.PLOTS_DIR / 'training_curves_combined.png'
     plot_training_curves_advanced(
         history, 
         best_epoch=best_epoch, 
-        save_path=curves_path
+        save_path=curves_combined_path
     )
-    print(f"   ✅ Saved to: {curves_path}")
     
-    # ⭐ Log all training artifacts to MLflow (including curves)
+    # Version 2: Separated (2 subplots)
+    curves_separated_path = cfg.PLOTS_DIR / 'training_curves_separated.png'
+    plot_training_curves_separated(
+        history, 
+        best_epoch=best_epoch, 
+        save_path=curves_separated_path
+    )
+    
+    print(f"   ✅ Combined version: {curves_combined_path.name}")
+    print(f"   ✅ Separated version: {curves_separated_path.name}")
+    
+    # ⭐ Log all training artifacts to MLflow (including both curves)
     best_model_path = cfg.get_model_save_path('best_model')
     log_training_complete(
         cfg, best_val_dice, best_epoch, epoch,
         train_metrics, val_metrics, total_time,
-        best_model_path, history_path, curves_path  # ⭐ Pass curves path
+        best_model_path, history_path, 
+        curves_combined_path, curves_separated_path  # ⭐ Pass both curves paths
     )
     
     # Save final model
@@ -575,7 +589,7 @@ def train_model(cfg):
             sample_results=results['sample_results'],
             save_dir=cfg.PREDICTIONS_DIR,
             config=cfg,
-            num_samples=10
+            num_samples=None  # ⭐ None = visualize ALL test samples
         )
         print(f"   ✅ Generated {len(saved_images)} prediction images in: {cfg.PREDICTIONS_DIR}")
         
@@ -603,10 +617,15 @@ def train_model(cfg):
         # Show detailed file summary
         print(f"\n📁 GENERATED FILES:")
         print(f"   Training Curves:")
-        if curves_path.exists():
-            print(f"      ✅ {curves_path}")
+        if curves_combined_path.exists():
+            print(f"      ✅ Combined (dual y-axis): {curves_combined_path.name}")
         else:
-            print(f"      ❌ {curves_path} (not found)")
+            print(f"      ❌ Combined: {curves_combined_path.name} (not found)")
+        
+        if curves_separated_path.exists():
+            print(f"      ✅ Separated (2 subplots): {curves_separated_path.name}")
+        else:
+            print(f"      ❌ Separated: {curves_separated_path.name} (not found)")
         
         print(f"\n   Test Results:")
         if csv_path.exists():
@@ -614,13 +633,15 @@ def train_model(cfg):
             # Show CSV info
             import pandas as pd
             df = pd.read_csv(csv_path)
-            print(f"         - {len(df)} samples")
+            print(f"         - {len(df)} samples with volume metrics")
             print(f"         - Columns: {', '.join(df.columns.tolist())}")
         
-        print(f"\n   Prediction Images:")
+        print(f"\n   Prediction Images (4-panel layout with volumes):")
         pred_images = list(cfg.PREDICTIONS_DIR.glob("*.png"))
         if pred_images:
-            print(f"      ✅ {len(pred_images)} images in {cfg.PREDICTIONS_DIR}")
+            print(f"      ✅ ALL {len(pred_images)} test samples visualized in {cfg.PREDICTIONS_DIR}")
+            print(f"         - Format: 4 panels (Original | GT+Volume | Pred+Volume | Overlap)")
+            print(f"         - Resolution: 300 DPI")
             print(f"         - Example: {pred_images[0].name}")
         else:
             print(f"      ❌ No images found in {cfg.PREDICTIONS_DIR}")

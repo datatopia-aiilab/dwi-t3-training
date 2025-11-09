@@ -76,17 +76,25 @@ def plot_training_curves(history_path, save_dir):
     # Load history
     history = load_training_history(history_path)
     
-    # Import plot function from utils
-    from utils import plot_training_curves as plot_curves
+    # Import plot functions from utils
+    from utils import plot_training_curves_advanced, plot_training_curves_separated
     
-    # Plot curves
-    fig = plot_curves(history)
+    # Plot curves - BOTH versions
+    print(f"   📊 Generating training curves...")
     
-    save_path = save_dir / 'training_curves.png'
-    fig.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.close(fig)
+    # Version 1: Combined (dual y-axis)
+    fig_combined = plot_training_curves_advanced(history, best_epoch=None)
+    save_path_combined = save_dir / 'training_curves_combined.png'
+    fig_combined.savefig(save_path_combined, dpi=300, bbox_inches='tight')
+    plt.close(fig_combined)
+    print(f"      ✅ Combined: {save_path_combined.name}")
     
-    print(f"   ✅ Saved to: {save_path}")
+    # Version 2: Separated (2 subplots)
+    fig_separated = plot_training_curves_separated(history, best_epoch=None)
+    save_path_separated = save_dir / 'training_curves_separated.png'
+    fig_separated.savefig(save_path_separated, dpi=300, bbox_inches='tight')
+    plt.close(fig_separated)
+    print(f"      ✅ Separated: {save_path_separated.name}")
 
 
 def main(args):

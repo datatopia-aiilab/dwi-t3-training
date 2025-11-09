@@ -121,7 +121,7 @@ def run_evaluation(model, test_loader, device, config, show_progress=True):
     }
 
 
-def generate_qualitative_results(sample_results, save_dir, config, num_samples=10):
+def generate_qualitative_results(sample_results, save_dir, config, num_samples=None):
     """
     Generate qualitative visualization of predictions
     
@@ -130,6 +130,8 @@ def generate_qualitative_results(sample_results, save_dir, config, num_samples=1
         save_dir: Directory to save visualizations
         config: Configuration module
         num_samples: Number of samples to visualize
+            - If None: visualize ALL samples (recommended for complete analysis)
+            - If int: select best/worst/random samples
     
     Returns:
         list: Paths to generated images
@@ -137,24 +139,30 @@ def generate_qualitative_results(sample_results, save_dir, config, num_samples=1
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     
-    # Select samples: best, worst, and random
-    dice_scores = [r['metrics']['dice'] for r in sample_results]
-    
-    # Best samples
-    best_indices = np.argsort(dice_scores)[-num_samples//3:][::-1]
-    
-    # Worst samples  
-    worst_indices = np.argsort(dice_scores)[:num_samples//3]
-    
-    # Random samples
-    remaining = list(set(range(len(sample_results))) - set(best_indices) - set(worst_indices))
-    if len(remaining) > 0:
-        n_random = min(num_samples - len(best_indices) - len(worst_indices), len(remaining))
-        random_indices = np.random.choice(remaining, size=n_random, replace=False)
+    # If num_samples is None, visualize ALL samples
+    if num_samples is None:
+        print(f"   📊 Visualizing ALL {len(sample_results)} test samples...")
+        selected_indices = list(range(len(sample_results)))
     else:
-        random_indices = []
-    
-    selected_indices = list(best_indices) + list(random_indices) + list(worst_indices)
+        # Select samples: best, worst, and random
+        print(f"   📊 Selecting {num_samples} samples (best/worst/random)...")
+        dice_scores = [r['metrics']['dice'] for r in sample_results]
+        
+        # Best samples
+        best_indices = np.argsort(dice_scores)[-num_samples//3:][::-1]
+        
+        # Worst samples  
+        worst_indices = np.argsort(dice_scores)[:num_samples//3]
+        
+        # Random samples
+        remaining = list(set(range(len(sample_results))) - set(best_indices) - set(worst_indices))
+        if len(remaining) > 0:
+            n_random = min(num_samples - len(best_indices) - len(worst_indices), len(remaining))
+            random_indices = np.random.choice(remaining, size=n_random, replace=False)
+        else:
+            random_indices = []
+        
+        selected_indices = list(best_indices) + list(random_indices) + list(worst_indices)
     
     saved_paths = []
     

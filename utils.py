@@ -254,137 +254,7 @@ def filter_patients_by_min_slices(slice_mapping, min_slices=3):
 
 
 # ==================== Visualization ====================
-
-def visualize_sample(image, mask, prediction=None, title="", 
-                    alpha=0.5, gt_color=(1.0, 0.0, 0.0), pred_color=(0.0, 1.0, 1.0)):
-    """
-    แสดงภาพ original, ground truth, และ prediction (ถ้ามี)
-    
-    Args:
-        image: 2D image (H, W) หรือ 2.5D (3, H, W) หรือ (H, W, 3)
-        mask: Ground truth mask (H, W) หรือ (1, H, W)
-        prediction: Predicted mask (H, W) หรือ (1, H, W) - optional
-        title: str, หัวข้อของรูป
-        alpha: float, ความโปร่งใสของ mask overlay
-        gt_color: tuple, สี RGB สำหรับ ground truth (0.0-1.0)
-        pred_color: tuple, สี RGB สำหรับ prediction (0.0-1.0)
-    
-    Returns:
-        fig: matplotlib figure
-    """
-    # จัดการ image shape
-    if len(image.shape) == 3:
-        # ถ้าเป็น (3, H, W) - PyTorch format
-        if image.shape[0] == 3:
-            image = image[1, :, :]  # Middle slice (N)
-        # ถ้าเป็น (H, W, 3) - numpy format
-        elif image.shape[-1] == 3:
-            image = image[:, :, 1]  # Middle slice (N)
-        # ถ้าเป็น (1, H, W)
-        elif image.shape[0] == 1:
-            image = image[0, :, :]
-    
-    # จัดการ mask shape
-    if len(mask.shape) == 3:
-        if mask.shape[0] == 1:
-            mask = mask[0, :, :]
-        elif mask.shape[-1] == 1:
-            mask = mask[:, :, 0]
-    
-    # จัดการ prediction shape
-    if prediction is not None and len(prediction.shape) == 3:
-        if prediction.shape[0] == 1:
-            prediction = prediction[0, :, :]
-        elif prediction.shape[-1] == 1:
-            prediction = prediction[:, :, 0]
-    
-    # Normalize image to 0-1 for display
-    image_display = (image - image.min()) / (image.max() - image.min() + 1e-8)
-    
-    # จำนวน subplot
-    num_plots = 3 if prediction is not None else 2
-    
-    fig, axes = plt.subplots(1, num_plots, figsize=(6*num_plots, 6))
-    
-    # Plot 1: Original Image
-    axes[0].imshow(image_display, cmap='gray')
-    axes[0].set_title('Original DWI', fontsize=14, fontweight='bold')
-    axes[0].axis('off')
-    
-    # Plot 2: Ground Truth Overlay
-    axes[1].imshow(image_display, cmap='gray')
-    
-    # Create color overlay for ground truth
-    if mask.max() > 0:
-        mask_overlay = np.zeros((*mask.shape, 3))
-        mask_overlay[mask > 0] = gt_color
-        axes[1].imshow(mask_overlay, alpha=alpha)
-    
-    axes[1].set_title('Ground Truth (Red)', fontsize=14, fontweight='bold')
-    axes[1].axis('off')
-    
-    # Plot 3: Prediction Overlay (if provided)
-    if prediction is not None:
-        axes[2].imshow(image_display, cmap='gray')
-        
-        # Create color overlay for prediction
-        if prediction.max() > 0:
-            pred_overlay = np.zeros((*prediction.shape, 3))
-            pred_overlay[prediction > 0] = pred_color
-            axes[2].imshow(pred_overlay, alpha=alpha)
-        
-        axes[2].set_title('Prediction (Cyan)', fontsize=14, fontweight='bold')
-        axes[2].axis('off')
-    
-    if title:
-        fig.suptitle(title, fontsize=16, fontweight='bold', y=0.98)
-    
-    plt.tight_layout()
-    
-    return fig
-
-
-def plot_training_curves(history, save_path=None):
-    """
-    พล็อตกราฟ Loss และ Dice Score ตลอดการเทรน
-    
-    Args:
-        history: dict with keys ['train_loss', 'val_loss', 'train_dice', 'val_dice']
-        save_path: Path to save the plot (optional)
-    
-    Returns:
-        fig: matplotlib figure
-    """
-    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
-    
-    epochs = range(1, len(history['train_loss']) + 1)
-    
-    # Plot Loss
-    axes[0].plot(epochs, history['train_loss'], 'b-', label='Train Loss', linewidth=2)
-    axes[0].plot(epochs, history['val_loss'], 'r-', label='Val Loss', linewidth=2)
-    axes[0].set_xlabel('Epoch', fontsize=12, fontweight='bold')
-    axes[0].set_ylabel('Loss', fontsize=12, fontweight='bold')
-    axes[0].set_title('Training and Validation Loss', fontsize=14, fontweight='bold')
-    axes[0].legend(fontsize=11)
-    axes[0].grid(True, alpha=0.3)
-    
-    # Plot Dice Score
-    axes[1].plot(epochs, history['train_dice'], 'b-', label='Train Dice', linewidth=2)
-    axes[1].plot(epochs, history['val_dice'], 'r-', label='Val Dice', linewidth=2)
-    axes[1].set_xlabel('Epoch', fontsize=12, fontweight='bold')
-    axes[1].set_ylabel('Dice Score', fontsize=12, fontweight='bold')
-    axes[1].set_title('Training and Validation Dice Score', fontsize=14, fontweight='bold')
-    axes[1].legend(fontsize=11)
-    axes[1].grid(True, alpha=0.3)
-    axes[1].set_ylim([0, 1.0])
-    
-    plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"✅ Training curves saved to {save_path}")
-    
-    return fig
+# Note: Old visualize_sample() removed - use visualize_sample_advanced() for 4-panel layout
 
 
 # ==================== Logging & Saving ====================
@@ -683,13 +553,86 @@ def plot_training_curves_advanced(history, best_epoch=None, save_path=None):
     ax1.legend(lines, labels, loc='upper right', fontsize=12, framealpha=0.9)
     
     # Title
-    plt.title('Training History: Loss & Dice Score', fontsize=16, fontweight='bold', pad=20)
+    plt.title('Training History: Loss & Dice Score (Combined)', fontsize=16, fontweight='bold', pad=20)
     
     plt.tight_layout()
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"✅ Advanced training curves saved to {save_path}")
+        print(f"✅ Advanced training curves (combined) saved to {save_path}")
+    
+    return fig
+
+
+def plot_training_curves_separated(history, best_epoch=None, save_path=None):
+    """
+    Plot professional training curves with SEPARATED subplots (Loss and Dice in separate panels)
+    
+    Args:
+        history: dict with keys ['train_loss', 'val_loss', 'train_dice', 'val_dice']
+        best_epoch: int, epoch with best validation score (optional)
+        save_path: Path to save the plot (optional)
+    
+    Returns:
+        fig: matplotlib figure
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+    
+    epochs = np.arange(1, len(history['train_loss']) + 1)
+    
+    # Colors (professional palette)
+    color_train = '#2E86DE'  # Blue
+    color_val = '#EE5A6F'    # Red
+    
+    # ==================== Plot 1: Loss ====================
+    axes[0].plot(epochs, history['train_loss'], color=color_train, 
+                linewidth=2.5, label='Train Loss', alpha=0.8, marker='o', markersize=4, markevery=max(1, len(epochs)//20))
+    axes[0].plot(epochs, history['val_loss'], color=color_val, 
+                linewidth=2.5, label='Val Loss', alpha=0.8, marker='s', markersize=4, markevery=max(1, len(epochs)//20))
+    
+    axes[0].set_xlabel('Epoch', fontsize=13, fontweight='bold')
+    axes[0].set_ylabel('Loss', fontsize=13, fontweight='bold')
+    axes[0].set_title('Training and Validation Loss', fontsize=14, fontweight='bold', pad=15)
+    axes[0].legend(fontsize=12, framealpha=0.9, loc='best')
+    axes[0].grid(True, alpha=0.3, linestyle='--')
+    
+    # Mark best epoch
+    if best_epoch is not None:
+        axes[0].axvline(x=best_epoch, color='gray', linestyle=':', linewidth=2, alpha=0.7)
+        y_pos = axes[0].get_ylim()[1] * 0.95
+        axes[0].text(best_epoch, y_pos, f'Best: {best_epoch}', 
+                    ha='center', va='top', fontsize=10, 
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+    
+    # ==================== Plot 2: Dice Score ====================
+    axes[1].plot(epochs, history['train_dice'], color=color_train, 
+                linewidth=2.5, label='Train Dice', alpha=0.8, marker='o', markersize=4, markevery=max(1, len(epochs)//20))
+    axes[1].plot(epochs, history['val_dice'], color=color_val, 
+                linewidth=2.5, label='Val Dice', alpha=0.8, marker='s', markersize=4, markevery=max(1, len(epochs)//20))
+    
+    axes[1].set_xlabel('Epoch', fontsize=13, fontweight='bold')
+    axes[1].set_ylabel('Dice Score', fontsize=13, fontweight='bold')
+    axes[1].set_title('Training and Validation Dice Score', fontsize=14, fontweight='bold', pad=15)
+    axes[1].legend(fontsize=12, framealpha=0.9, loc='best')
+    axes[1].grid(True, alpha=0.3, linestyle='--')
+    axes[1].set_ylim([0, 1.0])
+    
+    # Mark best epoch
+    if best_epoch is not None:
+        axes[1].axvline(x=best_epoch, color='gray', linestyle=':', linewidth=2, alpha=0.7)
+        y_pos = 0.95
+        axes[1].text(best_epoch, y_pos, f'Best: {best_epoch}', 
+                    ha='center', va='top', fontsize=10, 
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+    
+    # Overall title
+    fig.suptitle('Training History: Loss & Dice Score (Separated)', fontsize=16, fontweight='bold', y=0.98)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Training curves (separated) saved to {save_path}")
     
     return fig
 
@@ -939,15 +882,20 @@ def test_utils():
         patient_id, slice_num = parse_filename(filename)
         print(f"{filename:30s} -> Patient: {patient_id}, Slice: {slice_num}")
     
-    # Test 3: Visualization
-    print("\nTest 3: Visualization")
-    dummy_image = np.random.rand(256, 256)
+    # Test 3: Visualization (using advanced version)
+    print("\nTest 3: Advanced Visualization")
+    dummy_image = np.random.rand(3, 256, 256)  # 2.5D format
     dummy_mask = np.random.rand(256, 256) > 0.7
     dummy_pred = np.random.rand(256, 256) > 0.6
     
-    fig = visualize_sample(dummy_image, dummy_mask, dummy_pred, title="Test Sample")
+    fig = visualize_sample_advanced(
+        dummy_image, dummy_mask, dummy_pred, 
+        filename="Test Sample",
+        pixel_spacing=4.0,
+        slice_thickness=4.0
+    )
     plt.close(fig)
-    print("✅ Visualization test passed")
+    print("✅ Advanced visualization test passed")
     
     print("\n✅ All utils tests passed!")
 
