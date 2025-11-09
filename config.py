@@ -86,14 +86,47 @@ MODEL_ARCHITECTURE = 'deeplabv3+'  # เปลี่ยนตรงนี้เ�
 
 # ==================== Encoder Selection (for SMP models) ====================
 # Available encoders (when using unet++, fpn, deeplabv3+, manet, pspnet):
-#   'resnet34'       - ResNet-34 (~21M params, balanced)
-#   'resnet50'       - ResNet-50 (~25M params, more capacity)
-#   'efficientnet-b0' - EfficientNet-B0 (~5M params, efficient)
-#   'efficientnet-b3' - EfficientNet-B3 (~12M params, powerful)
+#
+# 🔥 POPULAR CLASSICS (ดังและนิยม):
+#   'vgg16'          - VGG-16 (~15M params, simple & effective, 2014)
+#   'vgg19'          - VGG-19 (~20M params, deeper than VGG-16)
+#   'densenet121'    - DenseNet-121 (~8M params, dense connections, memory efficient)
+#   'densenet169'    - DenseNet-169 (~14M params, deeper)
+#   'densenet201'    - DenseNet-201 (~20M params, deepest)
+#   'inceptionv4'    - Inception-v4 (~42M params, multi-scale, 2016)
+#   'inceptionresnetv2' - Inception-ResNet-v2 (~55M params, hybrid architecture)
+#   'xception'       - Xception (~23M params, depthwise separable convolutions)
+#
+# 🚀 MODERN EFFICIENT (ประสิทธิภาพสูง):
+#   'resnet34'       - ResNet-34 (~21M params, balanced) ⭐
+#   'resnet50'       - ResNet-50 (~25M params, more capacity) ⭐
+#   'resnet101'      - ResNet-101 (~44M params, very deep)
 #   'resnext50_32x4d' - ResNeXt-50 (~25M params, strong)
+#   'efficientnet-b0' - EfficientNet-B0 (~5M params, most efficient) ⭐
+#   'efficientnet-b1' - EfficientNet-B1 (~7M params)
+#   'efficientnet-b2' - EfficientNet-B2 (~9M params)
+#   'efficientnet-b3' - EfficientNet-B3 (~12M params, powerful)
+#   'efficientnet-b4' - EfficientNet-B4 (~19M params)
+#   'efficientnet-b5' - EfficientNet-B5 (~30M params)
+#
+# 🎯 ATTENTION-BASED (มี attention mechanisms):
+#   'senet154'       - SENet-154 (~115M params, heavy but powerful)
+#   'se_resnet50'    - SE-ResNet-50 (~28M params, ResNet + SE blocks)
+#   'se_resnext50_32x4d' - SE-ResNeXt-50 (~27M params)
 #   'timm-efficientnet-b5' - EfficientNet-B5 from timm (~30M params)
+#
+# 📊 SIZE COMPARISON:
+#   Small  (<10M):  efficientnet-b0, densenet121, mobilenet_v2
+#   Medium (10-30M): resnet34, resnet50, vgg16, densenet169
+#   Large  (>30M):   resnet101, inceptionv4, inceptionresnetv2, senet154
+#
+# 💡 RECOMMENDATIONS:
+#   - Small dataset (<1000): efficientnet-b0, densenet121, resnet34
+#   - Medium dataset (1000-5000): resnet50, densenet169, efficientnet-b3
+#   - Large dataset (>5000): resnet101, efficientnet-b5, inceptionresnetv2
+#   - Medical imaging: densenet121 (dense connections), se_resnet50 (attention)
 
-ENCODER_NAME = 'resnet50'  # Default encoder for SMP models
+ENCODER_NAME = 'densenet121'  # Default encoder for SMP models
 
 # Pre-trained weights
 ENCODER_WEIGHTS = 'imagenet'  # Options: 'imagenet' (pre-trained), None (random init)

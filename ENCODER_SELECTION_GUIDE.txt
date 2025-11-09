@@ -1,0 +1,405 @@
+═══════════════════════════════════════════════════════════════════════════
+คู่มือการเลือก Encoder สำหรับ Segmentation Models
+═══════════════════════════════════════════════════════════════════════════
+
+Date: November 9, 2025
+Purpose: แนะนำ encoder ยอดนิยมและวิธีเลือกที่เหมาะสม
+
+═══════════════════════════════════════════════════════════════════════════
+📚 ENCODER CATEGORIES
+═══════════════════════════════════════════════════════════════════════════
+
+1. 🔥 CLASSIC ARCHITECTURES (2014-2016)
+   ────────────────────────────────────
+   
+   VGG Family:
+   ──────────
+   • vgg16 (~15M params)
+     - จุดเด่น: Simple, straightforward, easy to understand
+     - จุดด้อย: Memory intensive, ช้ากว่า modern architectures
+     - ใช้เมื่อ: Want baseline comparison
+     - Pre-trained: ImageNet
+     - Paper: "Very Deep Convolutional Networks" (2014)
+   
+   • vgg19 (~20M params)
+     - จุดเด่น: Deeper than VGG-16
+     - จุดด้อย: More parameters, slower
+     - ใช้เมื่อ: Need more capacity than VGG-16
+   
+   DenseNet Family (เชื่อมต่อแบบ dense):
+   ────────────────────────────────────
+   • densenet121 (~8M params) ⭐ แนะนำสำหรับ medical imaging
+     - จุดเด่น: Dense connections, gradient flow ดี, memory efficient
+     - จุดด้อย: Training ช้ากว่า ResNet
+     - ใช้เมื่อ: Medical imaging, small dataset, want feature reuse
+     - ทำไมดี: Dense connections → ทุก layer เห็น features ทุกระดับ
+     - Paper: "Densely Connected Convolutional Networks" (2017)
+   
+   • densenet169 (~14M params)
+   • densenet201 (~20M params)
+     - Deeper versions of DenseNet-121
+   
+   Inception Family (multi-scale):
+   ──────────────────────────────
+   • inceptionv4 (~42M params)
+     - จุดเด่น: Multi-scale feature extraction (1×1, 3×3, 5×5)
+     - จุดด้อย: Complex, memory intensive
+     - ใช้เมื่อ: Objects/lesions have varying sizes
+     - Paper: "Inception-v4, Inception-ResNet" (2016)
+   
+   • inceptionresnetv2 (~55M params)
+     - จุดเด่น: Combines Inception + ResNet
+     - จุดด้อย: Very large, slow
+     - ใช้เมื่อ: Large dataset, need best performance
+   
+   • xception (~23M params)
+     - จุดเด่น: Depthwise separable convolutions, efficient
+     - จุดด้อย: Not as popular as ResNet/EfficientNet
+     - Paper: "Xception: Deep Learning with Depthwise Separable Convolutions" (2017)
+
+2. 🚀 MODERN EFFICIENT (2015-2019)
+   ───────────────────────────────
+   
+   ResNet Family (residual connections):
+   ────────────────────────────────────
+   • resnet34 (~21M params) ⭐ Balanced
+     - จุดเด่น: Residual connections, train ง่าย, fast
+     - จุดด้อย: Not as efficient as EfficientNet
+     - ใช้เมื่อ: Standard choice, proven performance
+     - Paper: "Deep Residual Learning" (2015)
+   
+   • resnet50 (~25M params) ⭐ Popular
+     - จุดเด่น: More capacity than ResNet-34, still efficient
+     - จุดด้อย: Slightly slower than ResNet-34
+     - ใช้เมื่อ: Need more capacity, have enough data
+   
+   • resnet101 (~44M params)
+   • resnet152 (~60M params)
+     - Very deep, for large datasets
+   
+   • resnext50_32x4d (~25M params)
+     - จุดเด่น: Group convolutions, better than ResNet-50
+     - Paper: "Aggregated Residual Transformations" (2017)
+   
+   EfficientNet Family (compound scaling):
+   ──────────────────────────────────────
+   • efficientnet-b0 (~5M params) ⭐ Most efficient
+     - จุดเด่น: Smallest, fastest, best params/performance ratio
+     - จุดด้อย: Less capacity than larger models
+     - ใช้เมื่อ: Small dataset, want speed, limited GPU
+     - Paper: "EfficientNet: Rethinking Model Scaling" (2019)
+   
+   • efficientnet-b1 (~7M params)
+   • efficientnet-b2 (~9M params)
+   • efficientnet-b3 (~12M params) ⭐ Sweet spot
+     - Balanced between efficiency and capacity
+   
+   • efficientnet-b4 (~19M params)
+   • efficientnet-b5 (~30M params)
+   • efficientnet-b6 (~43M params)
+   • efficientnet-b7 (~66M params)
+     - Larger versions, for big datasets
+
+3. 🎯 ATTENTION-BASED (with attention mechanisms)
+   ──────────────────────────────────────────────
+   
+   • senet154 (~115M params)
+     - จุดเด่น: Squeeze-and-Excitation blocks, channel attention
+     - จุดด้อย: Very large, slow, overkill for small datasets
+     - Paper: "Squeeze-and-Excitation Networks" (2018)
+   
+   • se_resnet50 (~28M params) ⭐ Good for medical
+     - จุดเด่น: ResNet-50 + SE blocks, attention to important channels
+     - จุดด้อย: Slightly slower than ResNet-50
+     - ใช้เมื่อ: Want attention without extra work
+   
+   • se_resnext50_32x4d (~27M params)
+     - SE blocks + ResNeXt architecture
+
+4. 📱 MOBILE & LIGHTWEIGHT
+   ──────────────────────
+   
+   • mobilenet_v2 (~3.5M params)
+     - จุดเด่น: Very small, very fast, for mobile/edge
+     - จุดด้อย: Lower capacity
+     - ใช้เมื่อ: Need real-time inference, limited resources
+   
+   • efficientnet-lite0 (~4.6M params)
+     - EfficientNet optimized for mobile
+
+═══════════════════════════════════════════════════════════════════════════
+📊 COMPARISON TABLE
+═══════════════════════════════════════════════════════════════════════════
+
+Encoder              | Params | Speed | Accuracy | Memory | Medical | Best For
+---------------------|--------|-------|----------|--------|---------|------------------
+vgg16                | 15M    | ⭐⭐  | ⭐⭐⭐  | ⭐     | ⭐⭐    | Baseline
+densenet121          | 8M     | ⭐⭐  | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐| Small dataset
+inceptionv4          | 42M    | ⭐    | ⭐⭐⭐⭐ | ⭐     | ⭐⭐⭐  | Multi-scale
+resnet34             | 21M    | ⭐⭐⭐⭐| ⭐⭐⭐  | ⭐⭐⭐ | ⭐⭐⭐  | Balanced
+resnet50             | 25M    | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐| Standard
+efficientnet-b0      | 5M     | ⭐⭐⭐⭐⭐| ⭐⭐⭐  | ⭐⭐⭐⭐⭐| ⭐⭐⭐  | Efficiency
+efficientnet-b3      | 12M    | ⭐⭐⭐⭐| ⭐⭐⭐⭐ | ⭐⭐⭐⭐| ⭐⭐⭐⭐| Sweet spot
+se_resnet50          | 28M    | ⭐⭐⭐ | ⭐⭐⭐⭐⭐| ⭐⭐   | ⭐⭐⭐⭐⭐| Attention
+
+═══════════════════════════════════════════════════════════════════════════
+💡 RECOMMENDATIONS FOR YOUR DATASET
+═══════════════════════════════════════════════════════════════════════════
+
+Your Dataset:
+- Size: 848 samples (640 train, 160 val, 48 test)
+- Type: Medical imaging (DWI stroke)
+- Task: Binary segmentation
+- Current: UNet++ with resnet50
+
+Recommended Encoders (ลำดับความแนะนำ):
+─────────────────────────────────────
+
+1. 🥇 densenet121 (แนะนำมากสำหรับ medical + small dataset)
+   ```python
+   ENCODER_NAME = 'densenet121'
+   ```
+   เหตุผล:
+   - Dense connections → gradient flow ดี → train ง่าย
+   - Small params (8M) → less overfitting risk
+   - Feature reuse → efficient learning
+   - Proven ใน medical imaging papers
+   - Memory efficient
+   
+   Expected: Val Dice +2-3% จาก ResNet-50
+
+2. 🥈 efficientnet-b0 (efficient + small)
+   ```python
+   ENCODER_NAME = 'efficientnet-b0'
+   ```
+   เหตุผล:
+   - Smallest (5M params) → minimal overfitting
+   - Fast training & inference
+   - Good baseline
+   - Already using, known to work
+   
+   Expected: Similar to current, maybe slightly worse
+
+3. 🥉 se_resnet50 (attention + proven)
+   ```python
+   ENCODER_NAME = 'se_resnet50'
+   ```
+   เหตุผล:
+   - ResNet-50 + SE blocks → built-in channel attention
+   - Good for medical (attention to important features)
+   - Only +3M params vs ResNet-50
+   - Complements your CBAM attention
+   
+   Expected: Val Dice +1-2% จาก ResNet-50
+
+4. efficientnet-b3 (balanced modern)
+   ```python
+   ENCODER_NAME = 'efficientnet-b3'
+   ```
+   เหตุผล:
+   - Sweet spot (12M params)
+   - Efficient + powerful
+   - Better than B0 without being too large
+   
+   Expected: Val Dice +1-2% จาก B0
+
+5. resnext50_32x4d (stronger ResNet)
+   ```python
+   ENCODER_NAME = 'resnext50_32x4d'
+   ```
+   เหตุผล:
+   - Group convolutions → better features
+   - Same size as ResNet-50 but stronger
+   
+   Expected: Val Dice +0-1% จาก ResNet-50
+
+❌ NOT Recommended สำหรับ dataset ขนาดนี้:
+- vgg16, vgg19: Old architecture, memory intensive
+- inceptionv4, inceptionresnetv2: Too large, slow
+- senet154: Massive overkill (115M params!)
+- resnet101, resnet152: Too deep for small dataset
+
+═══════════════════════════════════════════════════════════════════════════
+🧪 TESTING STRATEGY
+═══════════════════════════════════════════════════════════════════════════
+
+Step 1: Try DenseNet-121 (แนะนำที่สุด)
+────────────────────────────────────────
+```python
+MODEL_ARCHITECTURE = 'unet++'
+ENCODER_NAME = 'densenet121'
+ENCODER_WEIGHTS = 'imagenet'
+
+# Keep other settings from your fixed config:
+NUM_EPOCHS = 100
+WEIGHT_DECAY = 2e-4
+SCHEDULER = 'polynomial'
+AUGMENTATION_ENABLED = True
+```
+
+Why DenseNet-121:
+- Medical imaging papers love it
+- Dense connections = feature reuse
+- 8M params < 25M (ResNet-50) → less overfitting
+- Memory efficient despite dense connections
+
+Expected Results:
+- Train Dice: 0.78-0.80 (ลดลงจาก ResNet-50's 0.82)
+- Val Dice: 0.75-0.78 (เพิ่มขึ้นจาก 0.73-0.76)
+- Train-Val Gap: 0.05-0.08 (แคบกว่า)
+- Training time: Similar to ResNet-50
+
+Step 2: If DenseNet-121 doesn't beat ResNet-50
+───────────────────────────────────────────────
+Try SE-ResNet-50:
+```python
+ENCODER_NAME = 'se_resnet50'
+```
+
+Why:
+- ResNet-50 base (proven to work)
+- + SE attention (channel-wise)
+- Synergy with your CBAM (spatial attention)
+
+Step 3: If both fail to improve
+────────────────────────────────
+Try EfficientNet-B3:
+```python
+ENCODER_NAME = 'efficientnet-b3'
+```
+
+More capacity than B0, still efficient
+
+═══════════════════════════════════════════════════════════════════════════
+📝 HOW TO CHANGE ENCODER
+═══════════════════════════════════════════════════════════════════════════
+
+1. Edit config.py:
+   ```python
+   ENCODER_NAME = 'densenet121'  # Change this line
+   ```
+
+2. Run training:
+   ```bash
+   python train.py
+   ```
+
+3. MLflow will track:
+   - Experiment name: DWI-NOV-unet++ (or your architecture)
+   - Tags: encoder = 'densenet121'
+   - Compare in MLflow UI
+
+4. Compare results:
+   ```bash
+   mlflow ui --port 5000
+   ```
+   Filter by:
+   - Same architecture (unet++)
+   - Different encoders
+   - Sort by val_dice
+
+═══════════════════════════════════════════════════════════════════════════
+🔍 ENCODER SELECTION FLOWCHART
+═══════════════════════════════════════════════════════════════════════════
+
+Start: What's your priority?
+
+├─ 🎯 Best Performance (dataset < 1000)
+│  └─ densenet121 ⭐⭐⭐⭐⭐
+│     └─ If not enough: se_resnet50
+│        └─ If still not enough: densenet169
+
+├─ ⚡ Speed & Efficiency
+│  └─ efficientnet-b0 ⭐⭐⭐⭐⭐
+│     └─ If need more capacity: efficientnet-b3
+│        └─ If need even more: efficientnet-b5
+
+├─ 🔬 Medical Imaging Specific
+│  └─ densenet121 (dense connections) ⭐⭐⭐⭐⭐
+│     └─ Or: se_resnet50 (attention)
+│        └─ Or: efficientnet-b3 (efficient)
+
+├─ 🏆 Maximum Capacity (dataset > 5000)
+│  └─ resnet101
+│     └─ Or: efficientnet-b5
+│        └─ Or: inceptionresnetv2 (if GPU strong)
+
+└─ 💰 Balanced Budget
+   └─ resnet50 (current, proven) ⭐⭐⭐⭐
+      └─ Or: resnext50_32x4d (upgrade)
+         └─ Or: efficientnet-b3 (modern)
+
+═══════════════════════════════════════════════════════════════════════════
+📚 LITERATURE EVIDENCE
+═══════════════════════════════════════════════════════════════════════════
+
+Medical Image Segmentation Papers:
+
+1. DenseNet in Medical:
+   - "The Importance of Skip Connections in Biomedical Image Segmentation"
+   - "3D U-Net with DenseNet for Volumetric Segmentation"
+   - Conclusion: Dense connections improve gradient flow
+
+2. ResNet in Medical:
+   - "Deep Residual U-Net for Segmentation"
+   - Standard choice, proven effective
+
+3. EfficientNet in Medical:
+   - "EfficientNet-B0 for COVID-19 Detection"
+   - Good efficiency for deployment
+
+Common Findings:
+- DenseNet: Best for small datasets
+- ResNet: Versatile, works everywhere
+- EfficientNet: Best efficiency
+
+═══════════════════════════════════════════════════════════════════════════
+🎯 QUICK DECISION GUIDE
+═══════════════════════════════════════════════════════════════════════════
+
+Choose DenseNet-121 if:
+✅ Dataset small (<1000 samples) → You have 848 ✓
+✅ Medical imaging → Yes ✓
+✅ Want feature reuse → Yes ✓
+✅ Care about overfitting → Yes (Gap 0.26) ✓
+✅ Memory efficient → Yes ✓
+→ 5/5 matches! Use DenseNet-121
+
+Choose SE-ResNet-50 if:
+✅ Current ResNet-50 works well → Yes ✓
+✅ Want built-in attention → Yes (complement CBAM) ✓
+✅ Don't want big architecture change → Yes ✓
+→ Alternative choice
+
+Choose EfficientNet-B3 if:
+✅ Want modern architecture → Yes ✓
+✅ Balance between size and performance → Yes ✓
+✅ GPU memory limited → Not really ✗
+→ Good alternative
+
+═══════════════════════════════════════════════════════════════════════════
+✅ FINAL RECOMMENDATION
+═══════════════════════════════════════════════════════════════════════════
+
+Try in this order:
+
+1. DenseNet-121 (ลองก่อน - มีเหตุผลที่แข็งแกร่ง)
+2. SE-ResNet-50 (ถ้า DenseNet ไม่ดีกว่า)
+3. EfficientNet-B3 (ถ้าต้องการ modern alternative)
+
+Expected best: DenseNet-121
+- Medical imaging proven
+- Small dataset optimized
+- Dense connections benefit
+
+Just change in config.py:
+```python
+ENCODER_NAME = 'densenet121'
+```
+
+Then:
+```bash
+python train.py
+```
+
+═══════════════════════════════════════════════════════════════════════════
