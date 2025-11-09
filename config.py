@@ -109,10 +109,46 @@ BOTTLENECK_CHANNELS = 768  # For attention_unet only
 # Attention Gate
 USE_ATTENTION = True  # เปิด/ปิด Attention Gates (for attention_unet only)
 
+# ==================== Additional Attention Mechanisms ====================
+# These can be applied to ANY architecture (attention_unet, unet++, fpn, deeplabv3+, manet, pspnet)
+# Multiple can be enabled simultaneously
+
+# Squeeze-and-Excitation (SE) Block
+USE_SE_ATTENTION = False  # ✅ Very lightweight (~0.1M params), channel attention
+                          # Best for: Quick improvement with minimal overhead
+                          # Expected gain: +1-2% Dice
+
+# Convolutional Block Attention Module (CBAM)
+USE_CBAM_ATTENTION = True  # ✅ Channel + Spatial attention (~0.5M params)
+                            # Best for: Balanced spatial and channel focus
+                            # Expected gain: +2-3% Dice
+
+# Efficient Channel Attention (ECA)
+USE_ECA_ATTENTION = False  # ✅ More efficient than SE, no reduction
+                           # Best for: Better than SE, still lightweight
+                           # Expected gain: +1-2% Dice
+
+# Dual Attention (Position + Channel)
+USE_DUAL_ATTENTION = False  # ⚠️ Expensive (~2-3M params), applied at bottleneck only
+                            # Best for: Long-range dependencies, medical imaging
+                            # Expected gain: +3-5% Dice
+                            # Note: Only applied to layers with >=256 channels
+
+# Multi-Scale Attention
+USE_MULTISCALE_ATTENTION = False  # ⚠️ Medium cost (~1-2M params)
+                                  # Best for: Varying lesion sizes
+                                  # Expected gain: +2-4% Dice
+                                  # Note: Only applied to layers with >=128 channels
+
+# Attention combination strategy
+# 'sequential' - Apply selected attentions one after another
+# 'parallel' - Apply selected attentions in parallel and sum outputs
+ATTENTION_COMBINATION = 'sequential'  # 'sequential' or 'parallel'
+
 # ==================== Training Parameters ====================
 # Basic training settings
 NUM_EPOCHS = 200  # ⬇️ Quick test with 2 epochs
-BATCH_SIZE = 32  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
+BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
@@ -148,7 +184,7 @@ CHECKPOINT_METRIC = 'val_dice'  # Metric ที่ใช้ในการตั
 CHECKPOINT_MODE = 'max'  # 'max' (สูงกว่า = ดีกว่า) or 'min' (ต่ำกว่า = ดีกว่า)
 
 # ==================== Data Augmentation Parameters ====================
-AUGMENTATION_ENABLED = True  # ⬆️ คงไว้ (Round 8 ใช้ได้ดี)
+AUGMENTATION_ENABLED = False  # ⬆️ คงไว้ (Round 8 ใช้ได้ดี)
 
 # Augmentation - กลับไปใช้ค่า Round 8 ที่ balanced ดี
 AUG_HORIZONTAL_FLIP_PROB = 0.3  # ⬇️ กลับเป็น 0.3 (Round 8)

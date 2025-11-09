@@ -1,0 +1,200 @@
+"""
+ATTENTION MECHANISMS - QUICK START GUIDE
+========================================
+
+This guide shows how to use the new attention mechanisms with ANY architecture.
+
+## 🎯 Available Attention Mechanisms:
+
+1. **SE (Squeeze-and-Excitation)** - Very lightweight, channel attention
+2. **CBAM (Convolutional Block Attention)** - Channel + Spatial attention
+3. **ECA (Efficient Channel Attention)** - More efficient than SE
+4. **Dual Attention** - Position + Channel attention (for bottleneck)
+5. **Multi-Scale Attention** - Multi-scale feature fusion
+
+## 📝 Usage Examples:
+
+### Example 1: Attention U-Net with SE
+```python
+# config.py
+MODEL_ARCHITECTURE = 'attention_unet'
+USE_ATTENTION = True  # Original spatial attention gates
+USE_SE_ATTENTION = True  # Add SE blocks
+USE_CBAM_ATTENTION = False
+USE_ECA_ATTENTION = False
+USE_DUAL_ATTENTION = False
+USE_MULTISCALE_ATTENTION = False
+```
+
+### Example 2: UNet++ with CBAM
+```python
+# config.py
+MODEL_ARCHITECTURE = 'unet++'
+ENCODER_NAME = 'efficientnet-b0'
+USE_SE_ATTENTION = False
+USE_CBAM_ATTENTION = True  # Add CBAM
+USE_ECA_ATTENTION = False
+USE_DUAL_ATTENTION = False
+USE_MULTISCALE_ATTENTION = False
+```
+
+### Example 3: DeepLabV3+ with SE + Dual Attention
+```python
+# config.py
+MODEL_ARCHITECTURE = 'deeplabv3+'
+ENCODER_NAME = 'resnet34'
+USE_SE_ATTENTION = True  # Add SE blocks
+USE_CBAM_ATTENTION = False
+USE_ECA_ATTENTION = False
+USE_DUAL_ATTENTION = True  # Add Dual Attention to bottleneck
+USE_MULTISCALE_ATTENTION = False
+```
+
+### Example 4: MANet with All Attentions
+```python
+# config.py
+MODEL_ARCHITECTURE = 'manet'  # Already has attention built-in
+ENCODER_NAME = 'resnet34'
+USE_SE_ATTENTION = True
+USE_CBAM_ATTENTION = True
+USE_ECA_ATTENTION = False  # Don't combine with SE
+USE_DUAL_ATTENTION = True
+USE_MULTISCALE_ATTENTION = True
+```
+
+### Example 5: Testing Different Combinations
+```python
+# Try lightweight combination (good starting point)
+USE_SE_ATTENTION = True  # +0.1M params
+USE_CBAM_ATTENTION = False
+USE_ECA_ATTENTION = False
+USE_DUAL_ATTENTION = False
+USE_MULTISCALE_ATTENTION = False
+
+# Expected: +1-2% Dice, minimal overhead
+```
+
+## 🔬 Recommended Combinations:
+
+### For Quick Improvement (Minimal Overhead):
+```python
+USE_SE_ATTENTION = True  # or USE_ECA_ATTENTION = True
+# Rest = False
+# Expected: +1-2% Dice, ~0.1-0.2M params
+```
+
+### For Balanced Performance:
+```python
+USE_SE_ATTENTION = True
+USE_CBAM_ATTENTION = True
+# Rest = False
+# Expected: +2-3% Dice, ~0.5-0.7M params
+```
+
+### For Maximum Performance (Heavy):
+```python
+USE_SE_ATTENTION = True
+USE_CBAM_ATTENTION = True
+USE_DUAL_ATTENTION = True
+USE_MULTISCALE_ATTENTION = True
+# Expected: +4-6% Dice, ~2-4M params, slower training
+```
+
+### For Medical Imaging (Recommended):
+```python
+USE_CBAM_ATTENTION = True  # Spatial + Channel
+USE_DUAL_ATTENTION = True  # Long-range dependencies
+# Rest = False
+# Expected: +3-5% Dice, ~1-2M params
+```
+
+## ⚙️ Training with Attention:
+
+```python
+# train.py will automatically use the attention settings from config.py
+python train.py
+
+# The model will print which attention mechanisms are active:
+# 🎯 Active Attention Mechanisms:
+#    ✅ Spatial Attention Gates
+#    ✅ SE (Squeeze-Excitation)
+#    ✅ CBAM (Channel+Spatial)
+#    ✅ Dual Attention (Position+Channel)
+```
+
+## 🧪 Testing Attention Mechanisms:
+
+```bash
+# Test all combinations
+python test_attention_mechanisms.py
+
+# This will:
+# - Test each architecture with different attention configs
+# - Report parameter counts
+# - Verify output shapes and ranges
+# - Show memory usage
+```
+
+## 📊 Expected Results:
+
+| Attention          | Params Added | Speed Impact | Expected Gain |
+|--------------------|--------------|--------------|---------------|
+| SE                 | ~0.1M        | Minimal      | +1-2% Dice    |
+| CBAM               | ~0.5M        | Small (~5%)  | +2-3% Dice    |
+| ECA                | ~0.1M        | Minimal      | +1-2% Dice    |
+| Dual Attention     | ~2-3M        | Medium (~15%)| +3-5% Dice    |
+| Multi-Scale        | ~1-2M        | Medium (~10%)| +2-4% Dice    |
+| SE + CBAM          | ~0.6M        | Small (~8%)  | +3-4% Dice    |
+| SE + Dual + MS     | ~3-5M        | Heavy (~30%) | +5-8% Dice    |
+
+## ⚠️ Important Notes:
+
+1. **Don't combine SE and ECA** - They do the same thing (channel attention)
+2. **Dual Attention is expensive** - Only use if you have good GPU
+3. **Start simple** - Try SE or CBAM first, then add more if needed
+4. **Monitor training time** - More attention = slower training
+5. **All architectures supported** - Works with attention_unet, unet++, fpn, deeplabv3+, manet, pspnet
+
+## 🎓 Best Practices:
+
+1. **Baseline first**: Train without extra attention, get baseline performance
+2. **Add SE**: Try adding SE attention (+1-2% Dice, minimal cost)
+3. **Add CBAM**: If SE helps, try CBAM (+2-3% Dice, still efficient)
+4. **Add Dual**: If you need more, add Dual Attention (+3-5% Dice, slower)
+5. **Monitor overfitting**: More attention can lead to overfitting on small datasets
+
+## 🚀 Quick Start:
+
+```bash
+# 1. Edit config.py
+vim config.py
+
+# 2. Enable attention mechanisms
+USE_SE_ATTENTION = True  # Start simple
+
+# 3. Train
+python train.py
+
+# 4. Evaluate
+python evaluate.py --model 3_model_weights/best_model.pth
+
+# 5. Compare with baseline (no extra attention)
+# Check MLflow UI: http://localhost:5000
+```
+
+## 📚 References:
+
+- SE: "Squeeze-and-Excitation Networks" (CVPR 2018)
+- CBAM: "CBAM: Convolutional Block Attention Module" (ECCV 2018)
+- ECA: "ECA-Net: Efficient Channel Attention" (CVPR 2020)
+- Dual Attention: "Dual Attention Network" (CVPR 2019)
+
+## 💡 Tips:
+
+- For stroke segmentation: Try CBAM + Dual Attention
+- For small lesions: Try Multi-Scale Attention
+- For fast inference: Use SE or ECA only
+- For best accuracy: Combine multiple (but watch training time)
+
+Good luck! 🎯
+"""

@@ -1,6 +1,7 @@
 """
 Segmentation Models PyTorch (SMP) Wrappers
 Provides unified interface for all SMP-based architectures with 2.5D support
++ Optional additional attention mechanisms
 """
 
 import torch
@@ -14,11 +15,82 @@ except ImportError:
     print("⚠️  WARNING: segmentation_models_pytorch not installed!")
     print("   Install with: pip install segmentation-models-pytorch")
 
+# Import attention modules
+try:
+    from .attention_modules import SEBlock, CBAM, ECABlock, DualAttention, MultiScaleAttention
+    ATTENTION_AVAILABLE = True
+except ImportError:
+    ATTENTION_AVAILABLE = False
+    SEBlock = CBAM = ECABlock = DualAttention = MultiScaleAttention = None
+
+
+class AttentionInjector(nn.Module):
+    """
+    Wrapper to inject attention modules into any model
+    Works by wrapping the model and applying attention to output features
+    """
+    
+    def __init__(self, base_model, config):
+        super().__init__()
+        
+        self.base_model = base_model
+        
+        # Get attention configs
+        use_se = getattr(config, 'USE_SE_ATTENTION', False)
+        use_cbam = getattr(config, 'USE_CBAM_ATTENTION', False)
+        use_eca = getattr(config, 'USE_ECA_ATTENTION', False)
+        
+        # Prepare attention modules (will be instantiated on first forward)
+        self.use_se = use_se and ATTENTION_AVAILABLE
+        self.use_cbam = use_cbam and ATTENTION_AVAILABLE
+        self.use_eca = use_eca and ATTENTION_AVAILABLE
+        
+        self.se_module = None
+        self.cbam_module = None
+        self.eca_module = None
+        
+        # Print summary
+        if any([self.use_se, self.use_cbam, self.use_eca]):
+            attention_types = []
+            if self.use_se:
+                attention_types.append("SE")
+            if self.use_cbam:
+                attention_types.append("CBAM")
+            if self.use_eca:
+                attention_types.append("ECA")
+            print(f"   🔥 Injecting attention: {', '.join(attention_types)}")
+    
+    def forward(self, x):
+        # Base model forward
+        out = self.base_model(x)
+        
+        # Get number of channels (instantiate attention modules if needed)
+        channels = out.size(1)
+        
+        # Lazy initialization of attention modules
+        if self.use_se and self.se_module is None:
+            self.se_module = SEBlock(channels).to(out.device)
+        if self.use_cbam and self.cbam_module is None:
+            self.cbam_module = CBAM(channels).to(out.device)
+        if self.use_eca and self.eca_module is None:
+            self.eca_module = ECABlock(channels).to(out.device)
+        
+        # Apply attention modules
+        if self.se_module is not None:
+            out = self.se_module(out)
+        if self.cbam_module is not None:
+            out = self.cbam_module(out)
+        if self.eca_module is not None:
+            out = self.eca_module(out)
+        
+        return out
+
 
 class SMPWrapperBase(nn.Module):
     """
     Base wrapper class for SMP models
     Handles 2.5D input (3 channels) and binary output (1 channel)
+    + Optional attention injection
     """
     
     def __init__(self, config, architecture):
@@ -47,6 +119,14 @@ class SMPWrapperBase(nn.Module):
             in_channels=in_channels,
             classes=out_channels
         )
+        
+        # Inject attention if enabled
+        use_se = getattr(config, 'USE_SE_ATTENTION', False)
+        use_cbam = getattr(config, 'USE_CBAM_ATTENTION', False)
+        use_eca = getattr(config, 'USE_ECA_ATTENTION', False)
+        
+        if any([use_se, use_cbam, use_eca]) and ATTENTION_AVAILABLE:
+            self.model = AttentionInjector(self.model, config)
     
     def _create_model(self, architecture, encoder_name, encoder_weights, in_channels, classes):
         """Override in subclasses"""
