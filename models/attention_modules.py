@@ -33,11 +33,14 @@ class SEBlock(nn.Module):
     def __init__(self, channels, reduction=16):
         super(SEBlock, self).__init__()
         
+        # Ensure reduced channels is at least 1
+        reduced_channels = max(channels // reduction, 1)
+        
         self.squeeze = nn.AdaptiveAvgPool2d(1)
         self.excitation = nn.Sequential(
-            nn.Linear(channels, channels // reduction, bias=False),
+            nn.Linear(channels, reduced_channels, bias=False),
             nn.ReLU(inplace=True),
-            nn.Linear(channels // reduction, channels, bias=False),
+            nn.Linear(reduced_channels, channels, bias=False),
             nn.Sigmoid()
         )
     
@@ -66,10 +69,13 @@ class ChannelAttention(nn.Module):
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
         
+        # Ensure reduced channels is at least 1
+        reduced_channels = max(channels // reduction, 1)
+        
         self.fc = nn.Sequential(
-            nn.Conv2d(channels, channels // reduction, 1, bias=False),
+            nn.Conv2d(channels, reduced_channels, 1, bias=False),
             nn.ReLU(inplace=True),
-            nn.Conv2d(channels // reduction, channels, 1, bias=False)
+            nn.Conv2d(reduced_channels, channels, 1, bias=False)
         )
         
         self.sigmoid = nn.Sigmoid()
@@ -144,8 +150,11 @@ class PositionAttention(nn.Module):
     def __init__(self, channels):
         super(PositionAttention, self).__init__()
         
-        self.query_conv = nn.Conv2d(channels, channels // 8, 1)
-        self.key_conv = nn.Conv2d(channels, channels // 8, 1)
+        # Ensure reduced channels is at least 1
+        reduced_channels = max(channels // 8, 1)
+        
+        self.query_conv = nn.Conv2d(channels, reduced_channels, 1)
+        self.key_conv = nn.Conv2d(channels, reduced_channels, 1)
         self.value_conv = nn.Conv2d(channels, channels, 1)
         
         self.gamma = nn.Parameter(torch.zeros(1))
@@ -294,6 +303,7 @@ class ECABlock(nn.Module):
         if k_size is None:
             k_size = int(abs((torch.log2(torch.tensor(channels, dtype=torch.float32)) + 1) / 2))
             k_size = k_size if k_size % 2 else k_size + 1
+            k_size = max(k_size, 3)  # Ensure at least kernel size 3
         
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=(k_size - 1) // 2, bias=False)

@@ -40,11 +40,15 @@ class AttentionInjector(nn.Module):
         use_cbam = getattr(config, 'USE_CBAM_ATTENTION', False)
         use_eca = getattr(config, 'USE_ECA_ATTENTION', False)
         
-        # Prepare attention modules (will be instantiated on first forward)
+        # Store flags
         self.use_se = use_se and ATTENTION_AVAILABLE
         self.use_cbam = use_cbam and ATTENTION_AVAILABLE
         self.use_eca = use_eca and ATTENTION_AVAILABLE
         
+        # Will be initialized on first forward pass
+        self._attention_initialized = False
+        
+        # Placeholder for attention modules (registered as None initially)
         self.se_module = None
         self.cbam_module = None
         self.eca_module = None
@@ -60,20 +64,33 @@ class AttentionInjector(nn.Module):
                 attention_types.append("ECA")
             print(f"   🔥 Injecting attention: {', '.join(attention_types)}")
     
+    def _initialize_attention(self, channels):
+        """Initialize attention modules with correct number of channels"""
+        if self.use_se:
+            self.se_module = SEBlock(channels)
+        if self.use_cbam:
+            self.cbam_module = CBAM(channels)
+        if self.use_eca:
+            self.eca_module = ECABlock(channels)
+        
+        self._attention_initialized = True
+    
     def forward(self, x):
         # Base model forward
         out = self.base_model(x)
         
-        # Get number of channels (instantiate attention modules if needed)
-        channels = out.size(1)
-        
-        # Lazy initialization of attention modules
-        if self.use_se and self.se_module is None:
-            self.se_module = SEBlock(channels).to(out.device)
-        if self.use_cbam and self.cbam_module is None:
-            self.cbam_module = CBAM(channels).to(out.device)
-        if self.use_eca and self.eca_module is None:
-            self.eca_module = ECABlock(channels).to(out.device)
+        # Initialize attention modules on first forward pass
+        if not self._attention_initialized:
+            channels = out.size(1)
+            self._initialize_attention(channels)
+            
+            # Move to same device as output
+            if self.se_module is not None:
+                self.se_module = self.se_module.to(out.device)
+            if self.cbam_module is not None:
+                self.cbam_module = self.cbam_module.to(out.device)
+            if self.eca_module is not None:
+                self.eca_module = self.eca_module.to(out.device)
         
         # Apply attention modules
         if self.se_module is not None:
