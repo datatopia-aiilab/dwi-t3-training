@@ -112,7 +112,7 @@ USE_ATTENTION = True  # เปิด/ปิด Attention Gates (for attention_un
 # ==================== Training Parameters ====================
 # Basic training settings
 NUM_EPOCHS = 200  # ⬇️ ลดลงจาก 250 (ไม่ต้องการ train นานเกินไป)
-BATCH_SIZE = 16  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
+BATCH_SIZE = 4  # ปรับตาม GPU memory (ถ้า out of memory ให้ลดลง)
 NUM_WORKERS = 4  # จำนวน workers สำหรับ DataLoader
 
 # Optimizer
@@ -124,7 +124,7 @@ WEIGHT_DECAY = 8e-5  # ⬇️ ลดลง (จาก 2e-4) ให้อยู�
 GRADIENT_CLIP_VALUE = 1.0  # Clip gradients ที่มีค่ามากกว่า 1.0
 
 # Learning rate scheduler
-SCHEDULER = 'reduce_on_plateau'  # 'reduce_on_plateau' or 'cosine'
+SCHEDULER = 'cosine'  # 'reduce_on_plateau' or 'cosine'
 SCHEDULER_PATIENCE = 12  # ⬆️ เพิ่มขึ้น (เพื่อให้มีเวลาเรียนรู้มากขึ้น)
 SCHEDULER_FACTOR = 0.5  # ลด LR เป็น 0.5 เท่า
 SCHEDULER_MIN_LR = 1e-7  # LR ต่ำสุด
