@@ -486,21 +486,22 @@ def train_model(cfg):
     history_path = cfg.RESULTS_DIR / "training_history.json"
     save_training_history(history, history_path)
     
-    # Generate advanced training curves
+    # ⭐ Generate advanced training curves BEFORE logging to MLflow
+    print(f"\n📊 Generating advanced training curves...")
     curves_path = cfg.PLOTS_DIR / 'training_curves_advanced.png'
     plot_training_curves_advanced(
         history, 
         best_epoch=best_epoch, 
         save_path=curves_path
     )
-    print(f"\n📊 Advanced training curves saved to: {curves_path}")
+    print(f"   ✅ Saved to: {curves_path}")
     
-    # Log all training artifacts to MLflow
+    # ⭐ Log all training artifacts to MLflow (including curves)
     best_model_path = cfg.get_model_save_path('best_model')
     log_training_complete(
         cfg, best_val_dice, best_epoch, epoch,
         train_metrics, val_metrics, total_time,
-        best_model_path, history_path
+        best_model_path, history_path, curves_path  # ⭐ Pass curves path
     )
     
     # Save final model
@@ -597,6 +598,47 @@ def train_model(cfg):
         
         print("\n" + "="*70)
         print("✅ TEST EVALUATION COMPLETED!")
+        print("="*70)
+        
+        # Show detailed file summary
+        print(f"\n📁 GENERATED FILES:")
+        print(f"   Training Curves:")
+        if curves_path.exists():
+            print(f"      ✅ {curves_path}")
+        else:
+            print(f"      ❌ {curves_path} (not found)")
+        
+        print(f"\n   Test Results:")
+        if csv_path.exists():
+            print(f"      ✅ {csv_path}")
+            # Show CSV info
+            import pandas as pd
+            df = pd.read_csv(csv_path)
+            print(f"         - {len(df)} samples")
+            print(f"         - Columns: {', '.join(df.columns.tolist())}")
+        
+        print(f"\n   Prediction Images:")
+        pred_images = list(cfg.PREDICTIONS_DIR.glob("*.png"))
+        if pred_images:
+            print(f"      ✅ {len(pred_images)} images in {cfg.PREDICTIONS_DIR}")
+            print(f"         - Example: {pred_images[0].name}")
+        else:
+            print(f"      ❌ No images found in {cfg.PREDICTIONS_DIR}")
+        
+        print(f"\n   Test Plots:")
+        test_plot = cfg.PLOTS_DIR / 'test_metrics_distribution.png'
+        if test_plot.exists():
+            print(f"      ✅ {test_plot}")
+        else:
+            print(f"      ❌ {test_plot} (not found)")
+        
+        print(f"\n   Model Checkpoints:")
+        print(f"      ✅ {best_model_path}")
+        print(f"      ✅ {final_model_path}")
+        
+        print(f"\n   Training History:")
+        print(f"      ✅ {history_path}")
+        
         print("="*70)
         
     except Exception as e:

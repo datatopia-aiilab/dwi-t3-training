@@ -440,7 +440,7 @@ def print_run_info():
 # Convenience function to log everything at the end of training
 def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs, 
                          final_train_metrics, final_val_metrics, training_time,
-                         best_model_path, history_path):
+                         best_model_path, history_path, curves_path=None):
     """
     Log all final artifacts and metrics when training completes
     
@@ -454,6 +454,7 @@ def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs,
         training_time: Total training time (seconds)
         best_model_path: Path to best model checkpoint
         history_path: Path to training history JSON
+        curves_path: Path to training curves plot (optional)
     """
     if not cfg.MLFLOW_ENABLED or not mlflow.active_run():
         return
@@ -463,23 +464,60 @@ def log_training_complete(cfg, best_val_dice, best_epoch, total_epochs,
     print(f"{'='*70}\n")
     
     # Log best metrics
+    print("   📊 Logging best metrics...")
     log_best_metrics(best_val_dice, best_epoch, total_epochs, 
                     final_train_metrics, final_val_metrics, training_time)
+    print(f"      ✅ Best val dice: {best_val_dice:.4f} at epoch {best_epoch}")
     
     # Log artifacts
+    print(f"   💾 Logging model checkpoint...")
     log_model_artifact(best_model_path, "best_model")
+    
+    print(f"   📈 Logging training history...")
     log_training_history(history_path)
+    
+    print(f"   ⚙️  Logging config file...")
     log_config_file()
     
-    # Log any plots if they exist
+    # ⭐ Log training curves if provided
+    if curves_path and Path(curves_path).exists():
+        print(f"   📊 Logging training curves...")
+        mlflow.log_artifact(str(curves_path), artifact_path="plots")
+        print(f"      ✅ Logged: {Path(curves_path).name} → mlflow artifacts/plots/")
+    else:
+        print(f"   ⚠️  Training curves not found: {curves_path}")
+    
+    # Log any other plots if they exist
     plots_dir = cfg.PLOTS_DIR
     if plots_dir.exists():
+        other_plots = 0
         for plot_file in plots_dir.glob("*.png"):
+            # Skip if already logged
+            if curves_path and Path(plot_file).samefile(Path(curves_path)):
+                continue
             log_plot(plot_file)
+            other_plots += 1
+        if other_plots > 0:
+            print(f"   📊 Logged {other_plots} additional plot(s)")
     
     print(f"\n{'='*70}")
     print(f"✅ ALL ARTIFACTS LOGGED SUCCESSFULLY")
-    print_run_info()
+    
+    # Show where to view results
+    run = mlflow.active_run()
+    if run:
+        print(f"\n📊 MLflow Run Information:")
+        print(f"   Run ID: {run.info.run_id}")
+        print(f"   Run Name: {run.data.tags.get('mlflow.runName', 'N/A')}")
+        
+        url = get_run_url()
+        if url:
+            print(f"\n   🌐 View results in MLflow UI:")
+            print(f"   {url}")
+            print(f"\n   💡 To open MLflow UI, run:")
+            print(f"   mlflow ui --port 5000")
+            print(f"   Then open: http://localhost:5000")
+    
     print(f"{'='*70}\n")
 
 
@@ -659,23 +697,35 @@ def log_complete_evaluation(results, csv_path, images_dir, plots_dir, config):
     print(f"{'='*70}\n")
     
     # Log metrics
+    print(f"   📊 Logging aggregated test metrics...")
     log_test_evaluation(
         results['aggregated'],
         results['per_sample']
     )
     
     # Log CSV
+    print(f"   💾 Logging per-sample CSV...")
     log_per_sample_results_csv(csv_path)
     
     # Log images (limit to 20 to avoid bloat)
+    print(f"   🖼️  Logging prediction images...")
     log_qualitative_images(images_dir, max_images=20)
     
     # Log plots
+    print(f"   📈 Logging test plots...")
     log_test_plots(plots_dir)
     
     print(f"\n{'='*70}")
-    print(f"✅ TEST EVALUATION LOGGED SUCCESSFULLY")
+    print(f"✅ TEST EVALUATION LOGGED TO MLFLOW")
     print(f"   - Aggregated metrics: {len(results['aggregated'])} metrics")
     print(f"   - Per-sample results: {len(results['per_sample'])} samples")
-    print(f"   - Prediction images: up to 20 images")
+    
+    # Show volume metrics if available
+    if results['per_sample'] and 'gt_volume_ml' in results['per_sample'][0]:
+        print(f"   - Volume metrics: ✅ Included (gt_volume_ml, pred_volume_ml, volume_error_percent)")
+    else:
+        print(f"   - Volume metrics: ❌ Not found")
+    
+    print(f"   - Prediction images: logged to artifacts/predictions/")
+    print(f"   - Test plots: logged to artifacts/plots/")
     print(f"{'='*70}\n")
