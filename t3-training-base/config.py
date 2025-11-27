@@ -8,7 +8,7 @@ from pathlib import Path
 
 # ==================== Paths ====================
 PROJECT_ROOT = Path(__file__).parent
-RAW_DATA_PATH = PROJECT_ROOT.parent / "dwi-t3-training" / "1_data_raw"
+RAW_DATA_PATH = PROJECT_ROOT.parent / "1_data_raw"
 MODELS_DIR = PROJECT_ROOT / "models"
 
 # ==================== Data Parameters ====================
