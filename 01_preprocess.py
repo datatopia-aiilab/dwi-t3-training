@@ -101,10 +101,11 @@ def apply_n4_bias_correction(image, shrink_factor=4, num_iterations=50, verbose=
     
     # Shrink image for faster processing
     if shrink_factor > 1:
-        # Shrink image
+        # Shrink image (SimpleITK 2.x API)
         shrinker = sitk.ShrinkImageFilter()
-        shrunk_image = shrinker.Execute(sitk_image, [shrink_factor] * 2)
-        shrunk_mask = shrinker.Execute(mask_image, [shrink_factor] * 2)
+        shrinker.SetShrinkFactors([shrink_factor] * 2)
+        shrunk_image = shrinker.Execute(sitk_image)
+        shrunk_mask = shrinker.Execute(mask_image)
         
         # Apply correction on shrunk image
         corrected_shrunk = corrector.Execute(shrunk_image, shrunk_mask)
@@ -112,13 +113,11 @@ def apply_n4_bias_correction(image, shrink_factor=4, num_iterations=50, verbose=
         # Get bias field
         log_bias_field_shrunk = corrector.GetLogBiasFieldAsImage(shrunk_image)
         
-        # Expand bias field back to original size
+        # Expand bias field back to original size (SimpleITK 2.x API)
         expander = sitk.ExpandImageFilter()
-        log_bias_field = expander.Execute(
-            log_bias_field_shrunk,
-            [shrink_factor] * 2,
-            sitk.sitkLinear
-        )
+        expander.SetExpandFactors([shrink_factor] * 2)
+        expander.SetInterpolator(sitk.sitkLinear)
+        log_bias_field = expander.Execute(log_bias_field_shrunk)
         
         # Apply bias field to original image
         bias_field = sitk.Exp(log_bias_field)
