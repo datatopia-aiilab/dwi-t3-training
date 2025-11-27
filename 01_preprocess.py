@@ -48,6 +48,165 @@ def apply_clahe(image, clip_limit=0.03, tile_grid_size=None):
     return enhanced.astype(np.float32)
 
 
+def apply_n4_bias_correction(image, shrink_factor=4, num_iterations=50, verbose=False):
+    """
+    Apply N4 Bias Field Correction
+    
+    N4ITK (N4 Improved Nonparametric Nonuniform Normalization) corrects 
+    intensity inhomogeneity in MRI images caused by magnetic field variations.
+    
+    Benefits:
+    - Corrects "bias field" (intensity variations across image)
+    - Improves lesion visibility
+    - Makes normalization more effective
+    - Standard preprocessing in medical imaging
+    
+    Args:
+        image: 2D numpy array (H, W)
+        shrink_factor: Downsample factor for speed (4 = 4x faster)
+                      Higher = faster but less accurate
+        num_iterations: Number of correction iterations per level
+                       More = better correction but slower
+        verbose: Print processing info
+    
+    Returns:
+        Bias-corrected image (same shape as input)
+    
+    Notes:
+        - Requires SimpleITK: pip install SimpleITK
+        - Typical processing time: 5-30 seconds per image
+        - shrink_factor=4 is good balance (speed vs quality)
+    """
+    try:
+        import SimpleITK as sitk
+    except ImportError:
+        print("⚠️  SimpleITK not found. Skipping N4 correction.")
+        print("   Install with: pip install SimpleITK")
+        return image
+    
+    if verbose:
+        print(f"   Applying N4 correction (shrink={shrink_factor}, iter={num_iterations})...")
+    
+    # Convert to SimpleITK image
+    sitk_image = sitk.GetImageFromArray(image.astype(np.float32))
+    
+    # Create mask (exclude zeros/background)
+    mask_array = (image > 0).astype(np.uint8)
+    mask_image = sitk.GetImageFromArray(mask_array)
+    
+    # Setup N4 corrector
+    corrector = sitk.N4BiasFieldCorrectionImageFilter()
+    corrector.SetMaximumNumberOfIterations([num_iterations] * 4)  # 4 resolution levels
+    corrector.SetConvergenceThreshold(0.001)
+    
+    # Shrink image for faster processing
+    if shrink_factor > 1:
+        # Shrink image
+        shrinker = sitk.ShrinkImageFilter()
+        shrunk_image = shrinker.Execute(sitk_image, [shrink_factor] * 2)
+        shrunk_mask = shrinker.Execute(mask_image, [shrink_factor] * 2)
+        
+        # Apply correction on shrunk image
+        corrected_shrunk = corrector.Execute(shrunk_image, shrunk_mask)
+        
+        # Get bias field
+        log_bias_field_shrunk = corrector.GetLogBiasFieldAsImage(shrunk_image)
+        
+        # Expand bias field back to original size
+        expander = sitk.ExpandImageFilter()
+        log_bias_field = expander.Execute(
+            log_bias_field_shrunk,
+            [shrink_factor] * 2,
+            sitk.sitkLinear
+        )
+        
+        # Apply bias field to original image
+        bias_field = sitk.Exp(log_bias_field)
+        corrected = sitk_image / bias_field
+    else:
+        # No shrinking - apply directly
+        corrected = corrector.Execute(sitk_image, mask_image)
+    
+    # Convert back to numpy
+    corrected_array = sitk.GetArrayFromImage(corrected)
+    
+    return corrected_array.astype(np.float32)
+
+
+def apply_n4_parallel(image_files, raw_dir, output_dir, shrink_factor=4, 
+                     num_iterations=50, num_workers=4):
+    """
+    Apply N4 correction to multiple images in parallel
+    
+    Args:
+        image_files: List of image filenames
+        raw_dir: Directory containing raw images
+        output_dir: Directory to save corrected images
+        shrink_factor: N4 shrink factor
+        num_iterations: N4 iterations
+        num_workers: Number of parallel processes
+    
+    Returns:
+        Number of successfully processed images
+    """
+    from multiprocessing import Pool, cpu_count
+    from functools import partial
+    
+    # Create output directory
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Worker function
+    def process_single(filename, raw_dir, output_dir, shrink_factor, num_iterations):
+        try:
+            # Load image
+            img_path = Path(raw_dir) / filename
+            if not img_path.exists():
+                return False
+            
+            img = np.load(img_path)
+            
+            # Apply N4
+            corrected = apply_n4_bias_correction(
+                img,
+                shrink_factor=shrink_factor,
+                num_iterations=num_iterations,
+                verbose=False
+            )
+            
+            # Save
+            output_path = Path(output_dir) / filename
+            np.save(output_path, corrected)
+            
+            return True
+        except Exception as e:
+            print(f"Error processing {filename}: {e}")
+            return False
+    
+    # Use multiprocessing
+    num_workers = min(num_workers, cpu_count())
+    print(f"\n🚀 Processing {len(image_files)} images with {num_workers} workers...")
+    
+    worker_fn = partial(
+        process_single,
+        raw_dir=raw_dir,
+        output_dir=output_dir,
+        shrink_factor=shrink_factor,
+        num_iterations=num_iterations
+    )
+    
+    with Pool(num_workers) as pool:
+        results = list(tqdm(
+            pool.imap(worker_fn, image_files),
+            total=len(image_files),
+            desc="N4 Correction"
+        ))
+    
+    success_count = sum(results)
+    print(f"✅ Successfully processed: {success_count}/{len(image_files)}")
+    
+    return success_count
+
+
 def resize_image(image, target_size, is_mask=False):
     """
     Resize image or mask to target size
@@ -192,16 +351,26 @@ def compute_normalization_stats(image_files, raw_images_dir):
 
 
 def process_and_save(filename, raw_img_dir, raw_mask_dir, output_img_dir, output_mask_dir,
-                    target_size, apply_clahe_flag, clahe_params, mean, std):
+                    target_size, apply_n4_flag, apply_clahe_flag, n4_params, clahe_params, mean, std):
     """
     Process a single image-mask pair and save to output directory
+    
+    Processing pipeline:
+    1. Load image and mask
+    2. Apply N4 bias field correction (optional)
+    3. Resize to target size
+    4. Apply CLAHE (optional)
+    5. Normalize (Z-score)
+    6. Save as .npy
     
     Args:
         filename: Name of file to process
         raw_img_dir, raw_mask_dir: Input directories
         output_img_dir, output_mask_dir: Output directories
         target_size: Target image size (H, W)
+        apply_n4_flag: Whether to apply N4 bias correction
         apply_clahe_flag: Whether to apply CLAHE
+        n4_params: Dictionary with N4 parameters
         clahe_params: Dictionary with CLAHE parameters
         mean, std: Normalization parameters
     
@@ -233,12 +402,22 @@ def process_and_save(filename, raw_img_dir, raw_mask_dir, output_img_dir, output
                 return False
             mask = mask.astype(np.float32)
         
-        # Resize if needed
+        # Step 1: Apply N4 Bias Field Correction (BEFORE resize)
+        # N4 works better on original resolution
+        if apply_n4_flag:
+            image = apply_n4_bias_correction(
+                image,
+                shrink_factor=n4_params['shrink_factor'],
+                num_iterations=n4_params['num_iterations'],
+                verbose=False
+            )
+        
+        # Step 2: Resize if needed
         if target_size is not None:
             image = resize_image(image, target_size, is_mask=False)
             mask = resize_image(mask, target_size, is_mask=True)
         
-        # Apply CLAHE (CRUCIAL for faint lesions!)
+        # Step 3: Apply CLAHE (optional, usually NOT used with N4)
         if apply_clahe_flag:
             image = apply_clahe(
                 image,
@@ -246,7 +425,7 @@ def process_and_save(filename, raw_img_dir, raw_mask_dir, output_img_dir, output
                 tile_grid_size=clahe_params['tile_grid_size']
             )
         
-        # Normalize (Z-score)
+        # Step 4: Normalize (Z-score)
         if mean is not None and std is not None and std > 0:
             image = (image - mean) / std
         
@@ -361,6 +540,14 @@ def main():
         
         success_count = 0
         
+        # Prepare N4 parameters
+        n4_params = {
+            'shrink_factor': getattr(config, 'N4_SHRINK_FACTOR', 4),
+            'num_iterations': getattr(config, 'N4_NUM_ITERATIONS', 50)
+        }
+        
+        apply_n4_flag = getattr(config, 'N4_ENABLED', False)
+        
         for filename in tqdm(filenames, desc=f"   {split_name}"):
             success = process_and_save(
                 filename,
@@ -369,7 +556,9 @@ def main():
                 output_img_dir,
                 output_mask_dir,
                 config.IMAGE_SIZE,
+                apply_n4_flag,
                 config.CLAHE_ENABLED,
+                n4_params,
                 clahe_params,
                 mean,
                 std
@@ -385,6 +574,9 @@ def main():
     
     preprocess_config = {
         'image_size': config.IMAGE_SIZE,
+        'n4_enabled': getattr(config, 'N4_ENABLED', False),
+        'n4_shrink_factor': getattr(config, 'N4_SHRINK_FACTOR', 4),
+        'n4_num_iterations': getattr(config, 'N4_NUM_ITERATIONS', 50),
         'clahe_enabled': config.CLAHE_ENABLED,
         'clahe_clip_limit': config.CLAHE_CLIP_LIMIT,
         'normalize_method': config.NORMALIZE_METHOD,

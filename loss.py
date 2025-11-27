@@ -220,6 +220,200 @@ class BCEDiceLoss(nn.Module):
         return self.bce_weight * bce + self.dice_weight * dice
 
 
+class LogCoshDiceLoss(nn.Module):
+    """
+    Log-Cosh Dice Loss - Smooth and robust variant of Dice Loss
+    
+    Uses log(cosh(x)) as a smooth approximation that:
+    - Behaves like x^2 for small values (smooth gradients)
+    - Behaves like |x| for large values (less sensitive to outliers)
+    
+    Formula: LogCoshDice = log(cosh(DiceLoss))
+             where DiceLoss = 1 - DiceScore
+    
+    Benefits:
+    - Smoother gradients than standard Dice Loss
+    - More robust to outliers than MSE
+    - Helps with training stability
+    - Works well with medical image segmentation
+    
+    Args:
+        smooth: Smoothing factor for Dice calculation
+    """
+    
+    def __init__(self, smooth=1e-6):
+        super(LogCoshDiceLoss, self).__init__()
+        self.smooth = smooth
+    
+    def forward(self, pred, target):
+        """
+        Args:
+            pred: Predictions (B, 1, H, W) with values in [0, 1]
+            target: Ground truth (B, 1, H, W) with values in {0, 1}
+        
+        Returns:
+            loss: Scalar log-cosh dice loss value
+        """
+        # Flatten predictions and targets
+        pred = pred.view(-1)
+        target = target.view(-1)
+        
+        # Calculate intersection and union
+        intersection = (pred * target).sum()
+        union = pred.sum() + target.sum()
+        
+        # Calculate Dice score
+        dice_score = (2.0 * intersection + self.smooth) / (union + self.smooth)
+        
+        # Dice loss = 1 - Dice score
+        dice_loss = 1.0 - dice_score
+        
+        # Apply log(cosh(x)) transformation
+        # log(cosh(x)) is numerically stable and smooth
+        logcosh_loss = torch.log(torch.cosh(dice_loss))
+        
+        return logcosh_loss
+
+
+class ComboLogCoshDiceLoss(nn.Module):
+    """
+    Combination of Focal Loss and Log-Cosh Dice Loss
+    
+    Enhanced version of ComboLoss that uses Log-Cosh Dice for better stability
+    
+    Args:
+        focal_weight: Weight for focal loss component (default: 0.5)
+        dice_weight: Weight for log-cosh dice loss component (default: 0.5)
+        focal_alpha: Alpha parameter for focal loss
+        focal_gamma: Gamma parameter for focal loss
+        dice_smooth: Smooth parameter for dice loss
+    """
+    
+    def __init__(self, focal_weight=0.5, dice_weight=0.5, 
+                 focal_alpha=0.25, focal_gamma=2.0, dice_smooth=1e-6):
+        super(ComboLogCoshDiceLoss, self).__init__()
+        
+        self.focal_weight = focal_weight
+        self.dice_weight = dice_weight
+        
+        self.focal_loss = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
+        self.logcosh_dice_loss = LogCoshDiceLoss(smooth=dice_smooth)
+    
+    def forward(self, pred, target):
+        """
+        Args:
+            pred: Predictions (B, 1, H, W)
+            target: Ground truth (B, 1, H, W)
+        
+        Returns:
+            loss: Weighted combination of focal and log-cosh dice loss
+        """
+        focal = self.focal_loss(pred, target)
+        logcosh_dice = self.logcosh_dice_loss(pred, target)
+        
+        combo = self.focal_weight * focal + self.dice_weight * logcosh_dice
+        
+        return combo
+
+
+class DeepSupervisionLoss(nn.Module):
+    """
+    Deep Supervision Loss Wrapper
+    
+    Wraps any base loss function to handle deep supervision outputs
+    from models like AttentionUNetDeepSupervision
+    
+    Deep supervision provides gradient signals at multiple scales:
+    - Main output: Full resolution, weight = 1.0
+    - Auxiliary outputs: Intermediate resolutions, decreasing weights
+    
+    Benefits:
+    - Better gradient flow to early layers
+    - Faster convergence
+    - Improved final performance
+    - Multi-scale feature learning
+    
+    Args:
+        base_loss: The base loss function (e.g., DiceLoss, ComboLoss)
+        weights: List of weights for [main, aux1, aux2, aux3, ...]
+                Default: [1.0, 0.5, 0.25, 0.125] - exponentially decreasing
+        num_aux_outputs: Number of auxiliary outputs (default: 3)
+    
+    Example:
+        >>> base_loss = ComboLogCoshDiceLoss()
+        >>> ds_loss = DeepSupervisionLoss(base_loss, num_aux_outputs=3)
+        >>> # During training:
+        >>> outputs = model(x, return_aux=True)  # [main, aux1, aux2, aux3]
+        >>> loss = ds_loss(outputs, target)
+    """
+    
+    def __init__(self, base_loss, weights=None, num_aux_outputs=3):
+        super(DeepSupervisionLoss, self).__init__()
+        
+        self.base_loss = base_loss
+        self.num_aux_outputs = num_aux_outputs
+        
+        # Default weights: exponentially decreasing
+        if weights is None:
+            # Main output: 1.0, Aux outputs: 0.5, 0.25, 0.125, ...
+            weights = [1.0] + [0.5 ** (i + 1) for i in range(num_aux_outputs)]
+        
+        self.weights = weights
+        
+        # Normalize weights so they sum to a reasonable value
+        # This prevents loss magnitude from changing drastically
+        total_weight = sum(self.weights)
+        self.normalized_weights = [w / total_weight for w in self.weights]
+        
+        print(f"\n🔥 Deep Supervision Loss Initialized:")
+        print(f"   Base Loss: {type(base_loss).__name__}")
+        print(f"   Num Aux Outputs: {num_aux_outputs}")
+        print(f"   Raw Weights: {self.weights}")
+        print(f"   Normalized Weights: {[f'{w:.3f}' for w in self.normalized_weights]}")
+    
+    def forward(self, outputs, target):
+        """
+        Args:
+            outputs: List of [main_output, aux_output1, aux_output2, ...]
+                    Each tensor is (B, 1, H, W)
+                    OR single tensor (B, 1, H, W) if no deep supervision
+            target: Ground truth (B, 1, H, W)
+        
+        Returns:
+            loss: Weighted combination of losses from all outputs
+        """
+        # Handle case where model doesn't use deep supervision
+        if not isinstance(outputs, list):
+            # Single output - just use base loss
+            return self.base_loss(outputs, target)
+        
+        # Deep supervision: compute loss for each output
+        total_loss = 0.0
+        
+        for i, output in enumerate(outputs):
+            # Get weight for this output
+            if i < len(self.normalized_weights):
+                weight = self.normalized_weights[i]
+            else:
+                weight = 0.0  # Ignore extra outputs
+            
+            if weight > 0:
+                # Ensure output matches target size
+                if output.shape != target.shape:
+                    # This shouldn't happen if model upsamples correctly
+                    # but include as safety check
+                    output = F.interpolate(output, size=target.shape[2:], 
+                                         mode='bilinear', align_corners=True)
+                
+                # Compute loss for this output
+                loss_i = self.base_loss(output, target)
+                
+                # Add weighted loss
+                total_loss += weight * loss_i
+        
+        return total_loss
+
+
 # ==================== Loss Factory ====================
 
 def get_loss_function(loss_type='combo', **kwargs):
@@ -227,7 +421,8 @@ def get_loss_function(loss_type='combo', **kwargs):
     Factory function to get loss function based on type
     
     Args:
-        loss_type: 'focal', 'dice', 'combo', 'tversky', or 'bce_dice'
+        loss_type: 'focal', 'dice', 'combo', 'tversky', 'bce_dice', 
+                   'logcosh_dice', or 'combo_logcosh_dice'
         **kwargs: Additional parameters for the loss function
     
     Returns:
@@ -248,6 +443,20 @@ def get_loss_function(loss_type='combo', **kwargs):
     
     elif loss_type == 'combo':
         return ComboLoss(
+            focal_weight=kwargs.get('focal_weight', 0.5),
+            dice_weight=kwargs.get('dice_weight', 0.5),
+            focal_alpha=kwargs.get('focal_alpha', 0.25),
+            focal_gamma=kwargs.get('focal_gamma', 2.0),
+            dice_smooth=kwargs.get('dice_smooth', 1e-6)
+        )
+    
+    elif loss_type == 'logcosh_dice':
+        return LogCoshDiceLoss(
+            smooth=kwargs.get('dice_smooth', 1e-6)
+        )
+    
+    elif loss_type == 'combo_logcosh_dice':
+        return ComboLogCoshDiceLoss(
             focal_weight=kwargs.get('focal_weight', 0.5),
             dice_weight=kwargs.get('dice_weight', 0.5),
             focal_alpha=kwargs.get('focal_alpha', 0.25),
@@ -294,8 +503,10 @@ def test_losses():
     losses = {
         'Focal Loss': FocalLoss(),
         'Dice Loss': DiceLoss(),
+        'Log-Cosh Dice Loss': LogCoshDiceLoss(),
         'Tversky Loss': TverskyLoss(),
         'Combo Loss': ComboLoss(),
+        'Combo LogCosh Dice Loss': ComboLogCoshDiceLoss(),
         'BCE+Dice Loss': BCEDiceLoss()
     }
     
@@ -312,7 +523,7 @@ def test_losses():
     print("Testing Loss Factory:")
     print("="*50)
     
-    factory_losses = ['focal', 'dice', 'combo', 'tversky', 'bce_dice']
+    factory_losses = ['focal', 'dice', 'combo', 'logcosh_dice', 'combo_logcosh_dice', 'tversky', 'bce_dice']
     
     for loss_type in factory_losses:
         loss_fn = get_loss_function(loss_type)

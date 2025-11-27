@@ -123,10 +123,16 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg,
         # Zero gradients
         optimizer.zero_grad()
         
+        # Determine if using deep supervision
+        use_ds = hasattr(model, 'num_supervision_levels')
+        
         # Mixed precision training
         if scaler is not None:
             with torch.amp.autocast('cuda'):
-                outputs = model(images)
+                if use_ds:
+                    outputs = model(images, return_aux=True)  # Get all outputs for DS
+                else:
+                    outputs = model(images)
                 loss = criterion(outputs, masks)
             
             scaler.scale(loss).backward()
@@ -140,7 +146,10 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg,
             scaler.update()
         else:
             # Normal training
-            outputs = model(images)
+            if use_ds:
+                outputs = model(images, return_aux=True)  # Get all outputs for DS
+            else:
+                outputs = model(images)
             loss = criterion(outputs, masks)
             loss.backward()
             
@@ -152,8 +161,10 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch, cfg,
         
         # Calculate metrics
         with torch.no_grad():
+            # Get main output for metrics (first output if list, otherwise just output)
+            main_output = outputs[0] if isinstance(outputs, list) else outputs
             # Convert to binary predictions
-            preds = (outputs > 0.5).float()
+            preds = (main_output > 0.5).float()
             batch_dice = calculate_dice_score(
                 preds.cpu().numpy(), 
                 masks.cpu().numpy()
@@ -218,8 +229,14 @@ def validate_one_epoch(model, dataloader, criterion, device, epoch):
             images = images.to(device)
             masks = masks.to(device)
             
+            # Determine if using deep supervision
+            use_ds = hasattr(model, 'num_supervision_levels')
+            
             # Forward pass
-            outputs = model(images)
+            if use_ds:
+                outputs = model(images, return_aux=False)  # Only main output for validation
+            else:
+                outputs = model(images)
             loss = criterion(outputs, masks)
             
             # Calculate metrics
@@ -341,7 +358,7 @@ def train_model(cfg):
     
     # Create loss function
     print("\n📉 Creating loss function...")
-    criterion = get_loss_function(
+    base_criterion = get_loss_function(
         loss_type=cfg.LOSS_TYPE,
         focal_weight=cfg.COMBO_FOCAL_WEIGHT,
         dice_weight=cfg.COMBO_DICE_WEIGHT,
@@ -349,7 +366,26 @@ def train_model(cfg):
         focal_gamma=cfg.FOCAL_GAMMA,
         dice_smooth=cfg.DICE_SMOOTH
     )
-    print(f"   Loss type: {cfg.LOSS_TYPE.upper()}")
+    print(f"   Base loss type: {cfg.LOSS_TYPE.upper()}")
+    
+    # Wrap with Deep Supervision if enabled
+    use_deep_supervision = (
+        'ds' in cfg.MODEL_ARCHITECTURE.lower() or 
+        'deepsupervision' in cfg.MODEL_ARCHITECTURE.lower() or
+        getattr(cfg, 'USE_DEEP_SUPERVISION', False)
+    )
+    
+    if use_deep_supervision:
+        from loss import DeepSupervisionLoss
+        criterion = DeepSupervisionLoss(
+            base_loss=base_criterion,
+            weights=getattr(cfg, 'DEEP_SUPERVISION_WEIGHTS', None),
+            num_aux_outputs=getattr(cfg, 'DEEP_SUPERVISION_LEVELS', 3)
+        )
+        print(f"   🔥 Wrapped with Deep Supervision Loss")
+    else:
+        criterion = base_criterion
+        print(f"   Standard loss (no deep supervision)")
     
     # Create optimizer
     print("\n⚙️  Creating optimizer...")

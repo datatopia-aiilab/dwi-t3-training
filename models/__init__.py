@@ -19,6 +19,7 @@ def get_model(config):
     
     Supported Architectures:
         - attention_unet: Custom Attention U-Net (baseline)
+        - attention_unet_ds: Attention U-Net with Deep Supervision ⭐ NEW
         - unet++: U-Net++ with nested skip connections
         - fpn: Feature Pyramid Network
         - deeplabv3+: DeepLabV3+ with ASPP
@@ -39,6 +40,28 @@ def get_model(config):
         print(f"   Encoder channels: {config.ENCODER_CHANNELS}")
         print(f"   Bottleneck: {config.BOTTLENECK_CHANNELS}")
         print(f"   Attention gates: {config.USE_ATTENTION}")
+    
+    elif arch == 'attention_unet_ds' or arch == 'attention_unet_deepsupervision':
+        from .attention_unet import AttentionUNetDeepSupervision
+        model = AttentionUNetDeepSupervision(
+            in_channels=config.IN_CHANNELS,
+            out_channels=config.OUT_CHANNELS,
+            encoder_channels=config.ENCODER_CHANNELS,
+            bottleneck_channels=config.BOTTLENECK_CHANNELS,
+            use_attention=config.USE_ATTENTION,
+            dropout=config.DROPOUT,
+            use_se=getattr(config, 'USE_SE_ATTENTION', False),
+            use_cbam=getattr(config, 'USE_CBAM_ATTENTION', False),
+            use_eca=getattr(config, 'USE_ECA_ATTENTION', False),
+            use_dual=getattr(config, 'USE_DUAL_ATTENTION', False),
+            use_multiscale=getattr(config, 'USE_MULTISCALE_ATTENTION', False),
+            num_supervision_levels=getattr(config, 'DEEP_SUPERVISION_LEVELS', 3)
+        )
+        print(f"✅ Loaded Custom Attention U-Net with Deep Supervision")
+        print(f"   Encoder channels: {config.ENCODER_CHANNELS}")
+        print(f"   Bottleneck: {config.BOTTLENECK_CHANNELS}")
+        print(f"   Attention gates: {config.USE_ATTENTION}")
+        print(f"   🔥 Deep Supervision Levels: {getattr(config, 'DEEP_SUPERVISION_LEVELS', 3)}")
         
     elif arch == 'unet++' or arch == 'unetplusplus':
         from .smp_wrapper import UNetPlusPlusWrapper
@@ -78,7 +101,7 @@ def get_model(config):
     else:
         raise ValueError(
             f"Unknown architecture: {arch}\n"
-            f"Available options: attention_unet, unet++, fpn, deeplabv3+, manet, pspnet"
+            f"Available options: attention_unet, attention_unet_ds, unet++, fpn, deeplabv3+, manet, pspnet"
         )
     
     # Count parameters

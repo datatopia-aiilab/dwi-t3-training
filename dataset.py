@@ -199,6 +199,13 @@ def get_training_augmentation(config=None):
             p=config.AUG_GAUSSIAN_NOISE_PROB
         ))
     
+    # Gamma Correction (for intensity variation)
+    if hasattr(config, 'AUG_GAMMA_PROB') and config.AUG_GAMMA_PROB > 0:
+        transforms.append(A.RandomGamma(
+            gamma_limit=config.AUG_GAMMA_LIMIT,
+            p=config.AUG_GAMMA_PROB
+        ))
+    
     # Convert to tensor
     transforms.append(ToTensorV2())
     

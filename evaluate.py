@@ -23,6 +23,7 @@ from utils import (
 # Import evaluation functions from shared module
 from evaluation_module import (
     run_evaluation,
+    run_evaluation_with_tta,
     generate_qualitative_results,
     print_evaluation_summary,
     save_per_sample_results_csv,
@@ -153,13 +154,43 @@ def main(args):
     print("🧪 EVALUATING ON TEST SET")
     print("="*70)
     
-    results = run_evaluation(
-        model=model,
-        test_loader=test_loader,
-        device=device,
-        config=config,
-        show_progress=True
-    )
+    # Display TTA and CCA settings
+    use_tta = getattr(config, 'USE_TTA', False)
+    use_cca = getattr(config, 'USE_CCA', False)
+    
+    print(f"\n⚙️  Inference Settings:")
+    print(f"   Test-Time Augmentation (TTA): {'✅ Enabled' if use_tta else '❌ Disabled'}")
+    if use_tta:
+        tta_augs = getattr(config, 'TTA_AUGMENTATIONS', ['hflip', 'vflip'])
+        print(f"      Augmentations: {tta_augs}")
+        print(f"      Predictions to average: {len(tta_augs) + 1}")
+    
+    print(f"   Connected Component Analysis (CCA): {'✅ Enabled' if use_cca else '❌ Disabled'}")
+    if use_cca:
+        print(f"      Min size: {getattr(config, 'CCA_MIN_SIZE', 10)} pixels")
+        print(f"      Min confidence: {getattr(config, 'CCA_MIN_CONFIDENCE', 0.3)}")
+    
+    # Run evaluation with TTA and CCA if enabled
+    if use_tta or use_cca:
+        print(f"\n🚀 Running evaluation with TTA+CCA...")
+        results = run_evaluation_with_tta(
+            model=model,
+            test_loader=test_loader,
+            device=device,
+            config=config,
+            use_tta=use_tta,
+            use_cca=use_cca,
+            show_progress=True
+        )
+    else:
+        print(f"\n🚀 Running standard evaluation...")
+        results = run_evaluation(
+            model=model,
+            test_loader=test_loader,
+            device=device,
+            config=config,
+            show_progress=True
+        )
     
     # Print summary using formatted output
     print_evaluation_summary(results, show_per_sample_top=5)
