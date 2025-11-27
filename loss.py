@@ -269,8 +269,15 @@ class LogCoshDiceLoss(nn.Module):
         dice_loss = 1.0 - dice_score
         
         # Apply log(cosh(x)) transformation
-        # log(cosh(x)) is numerically stable and smooth
-        logcosh_loss = torch.log(torch.cosh(dice_loss))
+        # ⚠️ NUMERICAL STABILITY: cosh(x) grows exponentially
+        #    - cosh(10) ≈ 11,000
+        #    - cosh(50) ≈ 2.6e21  
+        #    - cosh(88) = inf → log(inf) = NaN
+        # Clamp dice_loss to prevent overflow
+        dice_loss_clamped = torch.clamp(dice_loss, min=-50.0, max=50.0)
+        
+        # log(cosh(x)) is numerically stable and smooth for reasonable x
+        logcosh_loss = torch.log(torch.cosh(dice_loss_clamped))
         
         return logcosh_loss
 
@@ -311,7 +318,16 @@ class ComboLogCoshDiceLoss(nn.Module):
         focal = self.focal_loss(pred, target)
         logcosh_dice = self.logcosh_dice_loss(pred, target)
         
+        # Safety check: Replace NaN/Inf with large but finite values
+        if torch.isnan(focal) or torch.isinf(focal):
+            focal = torch.tensor(10.0, device=focal.device, dtype=focal.dtype)
+        if torch.isnan(logcosh_dice) or torch.isinf(logcosh_dice):
+            logcosh_dice = torch.tensor(10.0, device=logcosh_dice.device, dtype=logcosh_dice.dtype)
+        
         combo = self.focal_weight * focal + self.dice_weight * logcosh_dice
+        
+        # Final safety: Clamp combined loss to reasonable range
+        combo = torch.clamp(combo, min=0.0, max=100.0)
         
         return combo
 

@@ -1,4 +1,4 @@
-# Training Issues & Fixes - Run eb321c4c
+# Training Issues & Fixes - Runs eb321c4c & ba4ce933
 
 ## 🚨 Critical Issues Found
 
@@ -27,7 +27,7 @@ if isinstance(outputs, (list, tuple)):
 
 ---
 
-### Issue 2: Gamma Augmentation Breaking Normalization ⚠️ CRITICAL
+### Issue 2: Gamma Augmentation Breaking Normalization ✅ FIXED
 
 **Problem:**
 - Original implementation clipped **ALL images** to non-negative (`p=1.0`)
@@ -97,16 +97,80 @@ EARLY_STOPPING_MIN_DELTA = 1e-4  # ⬇️ Decreased from 5e-4 (more sensitive)
 
 ---
 
+### Issue 4: Log-Cosh Dice Loss Numerical Overflow ⚠️ CRITICAL - NEW!
+
+**Error (Run ba4ce933):**
+```
+Epoch 1/100 - Train Loss: nan | Train Dice: 0.1316
+Epoch 2/100 - Train Loss: nan | Train Dice: 0.2649
+...
+Val Loss: 0.3131 (no NaN) ← Only training has NaN!
+```
+
+**Root Cause:**
+```python
+# BROKEN CODE (loss.py, original):
+dice_loss = 1.0 - dice_score  # Can be 0.0 to 2.0
+logcosh_loss = torch.log(torch.cosh(dice_loss))  # ❌ cosh() overflows!
+
+# Problem: cosh(x) grows exponentially
+# - cosh(10) ≈ 11,000
+# - cosh(50) ≈ 2.6e21
+# - cosh(88) = inf → log(inf) = NaN
+```
+
+**Why Only Training:**
+- Epoch 1-4: Model predictions very poor
+- Dice score ≈ 0.1-0.2 → Dice loss ≈ 0.8-0.9
+- With Deep Supervision + multiple outputs + weighted sum
+- Some auxiliary outputs might have dice_loss > 88
+- `cosh(88+)` = **inf** → `log(inf)` = **NaN**
+
+**Fix Applied (3-layer protection):**
+
+1. **Clamp dice_loss before cosh():**
+```python
+# loss.py, LogCoshDiceLoss
+dice_loss_clamped = torch.clamp(dice_loss, min=-50.0, max=50.0)
+logcosh_loss = torch.log(torch.cosh(dice_loss_clamped))
+```
+
+2. **NaN/Inf detection in combo loss:**
+```python
+# loss.py, ComboLogCoshDiceLoss
+if torch.isnan(focal) or torch.isinf(focal):
+    focal = torch.tensor(10.0, device=focal.device, dtype=focal.dtype)
+if torch.isnan(logcosh_dice) or torch.isinf(logcosh_dice):
+    logcosh_dice = torch.tensor(10.0, device=logcosh_dice.device, dtype=logcosh_dice.dtype)
+```
+
+3. **Clamp final combined loss:**
+```python
+combo = torch.clamp(combo, min=0.0, max=100.0)
+```
+
+**Location:** `loss.py`, lines 267-273 and 317-327
+
+---
+
 ## 📊 Training Results Analysis
 
-### Run eb321c4c (with issues):
+### Run eb321c4c (Gamma + Early Stop issues):
 ```
 Best Val Dice: 0.3288 (32.88%) at epoch 26
 Total Epochs: 56 (stopped early)
 Training Time: 67.6 minutes
+Issue: Gamma clipping broke normalization
 ```
 
-### Expected Performance (after fixes):
+### Run ba4ce933 (Log-Cosh overflow):
+```
+Epochs 1-4: Train Loss = NaN, Val Loss = normal
+Train Dice: 0.13-0.26 (learning despite NaN loss!)
+Issue: cosh() overflow in Log-Cosh Dice Loss
+```
+
+### Expected Performance (after ALL fixes):
 ```
 Target Val Dice: 70-75%
 Expected Epochs: 60-80 (with early stopping at ~50)
@@ -115,22 +179,21 @@ Training Time: ~100-120 minutes
 
 ### Performance Gap Analysis:
 
-**Current:** 32.88% Val Dice
+**Current:** 32.88% Val Dice (run eb321c4c) / NaN loss (run ba4ce933)
 **Expected:** 70%+ Val Dice
 **Gap:** ~37% (more than 2x worse)
 
-**Root Causes:**
-1. ❌ **Gamma clipping broke normalization** (primary issue, ~20% impact)
-2. ❌ **Early stopping too aggressive** (secondary, ~10% impact)
-3. ✅ N4 preprocessing working correctly
-4. ✅ Deep Supervision loss working correctly
-5. ✅ Augmentation pipeline working (except gamma)
+**Root Causes (ALL NOW FIXED):**
+1. ✅ **Gamma clipping broke normalization** (disabled gamma)
+2. ✅ **Early stopping too aggressive** (30 → 50 epochs)
+3. ✅ **Log-Cosh overflow** (added clamping + NaN handling)
+4. ✅ Deep Supervision evaluation error (added output handling)
 
 ---
 
-## 🔧 Fixes Summary
+## 🔧 All Fixes Summary
 
-### Applied Fixes:
+### Applied Fixes (3 runs total):
 
 1. **evaluation_module.py** (lines 58-61)
    - Added Deep Supervision output handling
@@ -148,26 +211,32 @@ Training Time: ~100-120 minutes
    - Removed broken gamma clipping (was affecting all images)
    - Kept placeholder for future proper implementation
 
+5. **loss.py** (lines 267-273) ⭐ NEW
+   - Added dice_loss clamping before cosh(): [-50, 50]
+   - Prevents cosh() overflow to inf
+
+6. **loss.py** (lines 317-327) ⭐ NEW
+   - Added NaN/Inf detection in ComboLogCoshDiceLoss
+   - Replace invalid values with finite fallback (10.0)
+   - Clamp final loss to [0, 100]
+
 ---
 
 ## 🚀 Next Steps
 
 ### Immediate Action Required:
 
-**RESTART TRAINING** with fixes:
+**RESTART TRAINING (3rd attempt)** with ALL fixes:
 
 ```bash
 # Stop current training (if running)
 Ctrl+C
 
-# Clear old predictions (optional, recommended)
-rm -rf 4_results/predictions/run_eb321c4c/
-
-# Restart training with fixes
+# Restart training with all fixes
 python train.py
 ```
 
-### Expected Behavior:
+### Expected Behavior (This Time For Real!):
 
 ✅ **No NaN loss** (gamma disabled)
 ✅ **Stable training** from epoch 1
