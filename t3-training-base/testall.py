@@ -285,12 +285,14 @@ def test_all(model_path, dataloader, output_dir, device):
                 all_iou_scores.append(iou)
                 all_filenames_list.append(filename)
                 
-                # Save visualization
+                # Save visualization with metrics
                 save_prediction_image(
                     img_slice, 
                     mask_gt, 
                     pred_mask, 
-                    output_dir / f"{filename}.png"
+                    output_dir / f"{filename}.png",
+                    dice_score=dice,
+                    iou_score=iou
                 )
     
     print(f"\n✅ All results saved to: {output_dir}")
@@ -489,36 +491,47 @@ def generate_summary_report(filenames, dice_scores, iou_scores, summary_dir):
     print("="*60)
 
 
-def save_prediction_image(img_slice, mask_gt, pred_mask, save_path):
+def save_prediction_image(img_slice, mask_gt, pred_mask, save_path, dice_score=None, iou_score=None):
     """
     Save high-quality PNG visualization with 3 panels: Original, Ground Truth, Prediction
+    Display Dice and IoU scores on the image
     
     Args:
         img_slice: Normalized image slice (H, W)
         mask_gt: Ground truth binary mask (H, W)
         pred_mask: Predicted binary mask (H, W)
         save_path: Path to save the result
+        dice_score: Dice coefficient score (optional)
+        iou_score: IoU score (optional)
     """
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     
     # Original Image
     axes[0].imshow(img_slice, cmap='gray')
-    axes[0].set_title('Original', fontsize=14, fontweight='bold')
+    axes[0].set_title('Original Image', fontsize=14, fontweight='bold')
     axes[0].axis('off')
     
-    # Ground Truth (Mask - Red overlay)
-    axes[1].imshow(img_slice, cmap='gray')
-    axes[1].imshow(mask_gt, cmap='Reds', alpha=0.5)
-    axes[1].set_title('Ground Truth', fontsize=14, fontweight='bold')
+    # Ground Truth (Black and White - no overlay)
+    axes[1].imshow(mask_gt, cmap='gray')
+    axes[1].set_title('Ground Truth Mask', fontsize=14, fontweight='bold')
     axes[1].axis('off')
     
-    # Prediction (Green overlay)
+    # Prediction (Green overlay on original)
     axes[2].imshow(img_slice, cmap='gray')
     axes[2].imshow(pred_mask, cmap='Greens', alpha=0.5)
-    axes[2].set_title('Prediction', fontsize=14, fontweight='bold')
+    axes[2].set_title('Prediction Overlay', fontsize=14, fontweight='bold')
     axes[2].axis('off')
     
-    plt.tight_layout()
+    # Add metrics as text if provided
+    if dice_score is not None and iou_score is not None:
+        # Add text box with metrics at the top
+        metrics_text = f'Dice: {dice_score:.4f}  |  IoU: {iou_score:.4f}'
+        fig.text(0.5, 0.95, metrics_text, 
+                ha='center', va='top',
+                fontsize=16, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.8, edgecolor='black', linewidth=2))
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.93])  # Leave space for metrics text
     # Save with high DPI from config
     plt.savefig(save_path, dpi=CONFIG['dpi'], bbox_inches='tight', format=CONFIG['image_format'])
     plt.close()
