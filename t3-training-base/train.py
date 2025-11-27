@@ -98,9 +98,13 @@ def load_and_preprocess_data():
     print("📂 Loading and Preprocessing Data")
     print("="*60)
     
+    # Ensure RAW_DATA_PATH is a Path object
+    from pathlib import Path
+    raw_data_path = Path(config.RAW_DATA_PATH) if isinstance(config.RAW_DATA_PATH, str) else config.RAW_DATA_PATH
+    
     # Find all image files
-    images_dir = config.RAW_DATA_PATH / "images"
-    masks_dir = config.RAW_DATA_PATH / "masks"
+    images_dir = raw_data_path / "images"
+    masks_dir = raw_data_path / "masks"
     
     image_files = sorted(glob.glob(str(images_dir / "*.nii.gz")))
     print(f"Found {len(image_files)} image files")
