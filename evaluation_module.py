@@ -59,6 +59,11 @@ def run_evaluation(model, test_loader, device, config, show_progress=True):
             # Forward pass
             outputs = model(images)
             
+            # Handle Deep Supervision outputs (list) vs single output (tensor)
+            if isinstance(outputs, (list, tuple)):
+                # Deep Supervision: Use only the main output (first element)
+                outputs = outputs[0]
+            
             # Convert to binary predictions
             preds = (outputs > config.PREDICTION_THRESHOLD).float()
             

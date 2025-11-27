@@ -397,8 +397,11 @@ COMBO_DICE_WEIGHT = 0.7   # น้ำหนัก Dice Loss
 
 
 # Early stopping
-EARLY_STOPPING_PATIENCE = 30  # ⬇️⬇️ ลดจาก 100 → 30 เพราะ epochs ลดลง และไม่อยากเสียเวลารอ
-EARLY_STOPPING_MIN_DELTA = 5e-4  # ⬆️ เพิ่มจาก 1e-4 เพื่อให้ต้อง improve จริง ๆ
+EARLY_STOPPING_PATIENCE = 50  # ⬆️⬆️ เพิ่มจาก 30 → 50 เพราะโมเดลเรียนรู้ช้าในช่วงแรก
+                               # Epoch 1-21: ยัง warm up อยู่
+                               # Epoch 22: เริ่มเรียนรู้จริงจัง (Dice 0.30)
+                               # ต้องให้เวลามากกว่า 30 epochs หลังจาก best
+EARLY_STOPPING_MIN_DELTA = 1e-4  # ⬇️ ลดจาก 5e-4 → 1e-4 เพื่อให้ sensitive กับการปรับปรุงเล็กน้อย
 
 # Checkpointing
 SAVE_BEST_ONLY = True  # บันทึกเฉพาะโมเดลที่ดีที่สุด
@@ -440,9 +443,17 @@ AUG_GAUSSIAN_NOISE_VAR = (5.0, 22.0)  # ลดลงเล็กน้อย (�
 # gamma > 1.0: Darkens image (compress bright regions)
 # gamma = 1.0: No change
 #
-# Expected improvement: +1-2% Dice score
+# ⚠️ COMPATIBILITY ISSUE with Z-Score Normalization:
+#   - Z-score creates negative values (mean=0, std=1)
+#   - Gamma requires non-negative values
+#   - Clipping negatives destroys normalization
+#   - **DISABLED for now** until we implement proper solution
+#
+# Expected improvement: +1-2% Dice score (when working properly)
 
-AUG_GAMMA_PROB = 0.25  # 25% chance of applying gamma correction
+AUG_GAMMA_PROB = 0.0  # ⚠️ DISABLED: Incompatible with z-score normalization
+                      # TODO: Implement gamma before normalization in preprocessing
+                      # Or use MinMax normalization instead of Z-score
 AUG_GAMMA_LIMIT = (80, 120)  # Gamma range: (0.8, 1.2)
                               # (80, 120) in albumentations = gamma * 100
                               # Reasonable range for medical images

@@ -199,13 +199,11 @@ def get_training_augmentation(config=None):
             p=config.AUG_GAUSSIAN_NOISE_PROB
         ))
     
-    # Gamma Correction (for intensity variation)
-    # Note: Gamma requires non-negative values, so we clip first
+    # Gamma Correction (DISABLED - incompatible with z-score normalization)
+    # See config.py for details on why this is disabled
     if hasattr(config, 'AUG_GAMMA_PROB') and config.AUG_GAMMA_PROB > 0:
-        transforms.append(A.Lambda(
-            image=lambda img, **kwargs: np.clip(img, 0, None),  # Ensure non-negative
-            p=1.0
-        ))
+        # Would need to apply gamma BEFORE z-score normalization in preprocessing
+        # Not compatible with current augmentation pipeline
         transforms.append(A.RandomGamma(
             gamma_limit=config.AUG_GAMMA_LIMIT,
             p=config.AUG_GAMMA_PROB
