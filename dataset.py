@@ -200,7 +200,12 @@ def get_training_augmentation(config=None):
         ))
     
     # Gamma Correction (for intensity variation)
+    # Note: Gamma requires non-negative values, so we clip first
     if hasattr(config, 'AUG_GAMMA_PROB') and config.AUG_GAMMA_PROB > 0:
+        transforms.append(A.Lambda(
+            image=lambda img, **kwargs: np.clip(img, 0, None),  # Ensure non-negative
+            p=1.0
+        ))
         transforms.append(A.RandomGamma(
             gamma_limit=config.AUG_GAMMA_LIMIT,
             p=config.AUG_GAMMA_PROB
