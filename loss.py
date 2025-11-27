@@ -390,6 +390,10 @@ class DeepSupervisionLoss(nn.Module):
         # Deep supervision: compute loss for each output
         total_loss = 0.0
         
+        # Ensure target has channel dimension (N, C, H, W)
+        if target.dim() == 3:
+            target = target.unsqueeze(1)  # (N, H, W) -> (N, 1, H, W)
+        
         for i, output in enumerate(outputs):
             # Get weight for this output
             if i < len(self.normalized_weights):
@@ -400,9 +404,9 @@ class DeepSupervisionLoss(nn.Module):
             if weight > 0:
                 # Ensure output matches target size
                 if output.shape != target.shape:
-                    # This shouldn't happen if model upsamples correctly
-                    # but include as safety check
-                    output = F.interpolate(output, size=target.shape[2:], 
+                    # Upsample output to match target spatial size
+                    target_size = target.shape[2:]  # (H, W)
+                    output = F.interpolate(output, size=target_size, 
                                          mode='bilinear', align_corners=True)
                 
                 # Compute loss for this output
