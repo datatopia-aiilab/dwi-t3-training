@@ -113,11 +113,21 @@ def apply_n4_bias_correction(image, shrink_factor=4, num_iterations=50, verbose=
         # Get bias field
         log_bias_field_shrunk = corrector.GetLogBiasFieldAsImage(shrunk_image)
         
-        # Expand bias field back to original size (SimpleITK 2.x API)
-        expander = sitk.ExpandImageFilter()
-        expander.SetExpandFactors([shrink_factor] * 2)
-        expander.SetInterpolator(sitk.sitkLinear)
-        log_bias_field = expander.Execute(log_bias_field_shrunk)
+        # Resample the (log) bias field back to the original image physical space
+        # Use Resample to ensure origin/spacing/direction match the original image
+        try:
+            # Resample log bias field to match sitk_image (physical space)
+            log_bias_field = sitk.Resample(
+                log_bias_field_shrunk,
+                sitk_image,
+                sitk.Transform(),
+                sitk.sitkLinear,
+                0.0,
+                log_bias_field_shrunk.GetPixelID()
+            )
+        except Exception:
+            # Fallback: if Resample signature differs, try a simpler call
+            log_bias_field = sitk.Resample(log_bias_field_shrunk, sitk_image)
         
         # Apply bias field to original image
         bias_field = sitk.Exp(log_bias_field)
