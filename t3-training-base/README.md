@@ -47,11 +47,16 @@ pip install mlflow
 
 ```bash
 cd t3-training-base
+
+# (ตัวเลือก) ตรวจสอบข้อมูลก่อน
+python check_data.py
+
+# รัน training
 python train.py
 ```
 
 **จะทำอะไรบ้าง:**
-1. โหลดข้อมูลจาก `../dwi-t3-training/1_data_raw/`
+1. โหลดข้อมูลจาก `../1_data_raw/` (รองรับทั้ง .npy และ .nii.gz)
 2. Preprocess ในหน่วยความจำ (resize, normalize, 2.5D)
 3. แบ่งข้อมูล train/val/test (80/15/5)
 4. Train Attention U-Net (100 epochs หรือจน early stop)

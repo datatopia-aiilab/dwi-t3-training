@@ -88,7 +88,7 @@ class DWIDataset(Dataset):
 
 def load_and_preprocess_data():
     """
-    Load all .nii.gz files, preprocess, and split into train/val/test
+    Load all data files (.npy or .nii.gz), preprocess, and split into train/val/test
     All done in-memory - no saved files!
     
     Returns:
@@ -106,32 +106,55 @@ def load_and_preprocess_data():
     images_dir = raw_data_path / "images"
     masks_dir = raw_data_path / "masks"
     
-    image_files = sorted(glob.glob(str(images_dir / "*.nii.gz")))
-    print(f"Found {len(image_files)} image files")
+    # Try .npy files first, then .nii.gz
+    image_files = sorted(glob.glob(str(images_dir / "*.npy")))
+    if len(image_files) == 0:
+        image_files = sorted(glob.glob(str(images_dir / "*.nii.gz")))
+        file_type = "nii.gz"
+    else:
+        file_type = "npy"
+    
+    print(f"Found {len(image_files)} {file_type} image files")
     
     if len(image_files) == 0:
-        raise FileNotFoundError(f"No .nii.gz files found in {images_dir}")
+        raise FileNotFoundError(f"No .npy or .nii.gz files found in {images_dir}")
     
     # Load all slices
     all_images = []
     all_masks = []
     
-    print("\nLoading files...")
+    print(f"\nLoading {file_type} files...")
     for img_path in tqdm(image_files, desc="Loading"):
         # Get corresponding mask
         img_name = Path(img_path).name
-        mask_path = masks_dir / img_name
+        
+        # Handle different file extensions for mask
+        if file_type == "npy":
+            mask_path = masks_dir / img_name  # Same extension
+        else:
+            mask_path = masks_dir / img_name
         
         if not mask_path.exists():
             print(f"Warning: Mask not found for {img_name}, skipping...")
             continue
         
-        # Load NIfTI files
-        img_nii = nib.load(img_path)
-        mask_nii = nib.load(str(mask_path))
+        # Load data based on file type
+        if file_type == "npy":
+            # Load .npy files
+            img_data = np.load(img_path)
+            mask_data = np.load(str(mask_path))
+        else:
+            # Load NIfTI files
+            img_nii = nib.load(img_path)
+            mask_nii = nib.load(str(mask_path))
+            img_data = img_nii.get_fdata()
+            mask_data = mask_nii.get_fdata()
         
-        img_data = img_nii.get_fdata()
-        mask_data = mask_nii.get_fdata()
+        # Handle different data shapes
+        # If 2D (H, W), add a dummy slice dimension
+        if img_data.ndim == 2:
+            img_data = img_data[:, :, np.newaxis]
+            mask_data = mask_data[:, :, np.newaxis]
         
         # Process each slice
         for slice_idx in range(img_data.shape[2]):
