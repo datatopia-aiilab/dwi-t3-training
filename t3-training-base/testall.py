@@ -522,16 +522,16 @@ def save_prediction_image(img_slice, mask_gt, pred_mask, save_path, dice_score=N
     axes[2].set_title('Prediction Overlay', fontsize=14, fontweight='bold')
     axes[2].axis('off')
     
-    # Add metrics as text if provided
+    # Add metrics below the prediction image if provided
     if dice_score is not None and iou_score is not None:
-        # Add text box with metrics at the top (moved higher)
-        metrics_text = f'Dice: {dice_score:.4f}  |  IoU: {iou_score:.4f}'
-        fig.text(0.5, 0.98, metrics_text, 
-                ha='center', va='top',
-                fontsize=16, fontweight='bold',
-                bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.95, edgecolor='black', linewidth=2))
+        metrics_text = f'Dice: {dice_score:.4f}\nIoU: {iou_score:.4f}'
+        axes[2].text(0.5, -0.05, metrics_text, 
+                    transform=axes[2].transAxes,
+                    ha='center', va='top',
+                    fontsize=14, fontweight='bold',
+                    bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.95, edgecolor='black', linewidth=2))
     
-    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave more space for metrics text
+    plt.tight_layout()
     # Save with high DPI from config
     plt.savefig(save_path, dpi=CONFIG['dpi'], bbox_inches='tight', format=CONFIG['image_format'])
     plt.close()
