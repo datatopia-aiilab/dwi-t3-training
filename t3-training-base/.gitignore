@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Models (will be saved in MLflow)
+models/
+*.pth
+*.pt
+
+# Data (use original data from parent folder)
+data/
+*.nii
+*.nii.gz
+
+# MLflow (keep structure, ignore runs)
+mlruns/*/
+!mlruns/.gitkeep
+
+# Temporary files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Virtual environment
+venv/
+env/
+ENV/
