@@ -56,12 +56,12 @@ VIS_CONFIG = {
     'random_seed': 42,          # Random seed
     
     # N4 Parameters (ถ้าใช้)
-    'n4_enabled': True,
+    'n4_enabled': False,         # ปิดไว้ก่อนเพราะมีปัญหากับ SimpleITK
     'n4_shrink_factor': 4,
     'n4_num_iterations': [50, 50, 50, 50],
     
     # CLAHE Parameters
-    'clahe_enabled': False,      # ปกติไม่ใช้ถ้ามี N4 แล้ว
+    'clahe_enabled': True,       # เปิดใช้ CLAHE แทน N4
     'clahe_clip_limit': 2.0,
     'clahe_tile_grid_size': (8, 8),
     
@@ -257,7 +257,7 @@ def visualize_single_sample(steps, sample_name, save_dir):
     step_names = ['original', 'n4', 'clahe', 'normalized']
     titles = [
         'Step 1: Original\n(Resized)',
-        'Step 2: N4 Bias Correction\n(Intensity Homogenization)',
+        'Step 2: N4 / Skip\n(Disabled)',
         'Step 3: CLAHE\n(Contrast Enhancement)',
         'Step 4: Normalized\n(Z-score)'
     ]
@@ -321,7 +321,7 @@ def create_overview_grid(all_steps, sample_names, save_path):
     step_names = ['original', 'n4', 'clahe', 'normalized']
     
     # Column titles
-    col_titles = ['Original', 'N4 Corrected', 'CLAHE', 'Normalized']
+    col_titles = ['Original', 'N4/Skip', 'CLAHE', 'Normalized']
     
     for row_idx, (steps, sample_name) in enumerate(zip(all_steps, sample_names)):
         for col_idx, step_name in enumerate(step_names):
