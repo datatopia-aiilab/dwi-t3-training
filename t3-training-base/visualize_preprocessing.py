@@ -101,7 +101,7 @@ def apply_n4_bias_correction(img_data, shrink_factor=4, num_iterations=[50, 50, 
     
     # Setup N4 corrector
     corrector = sitk.N4BiasFieldCorrectionImageFilter()
-    corrector.SetNumberOfIterations(num_iterations)
+    corrector.SetMaximumNumberOfIterations(num_iterations)
     corrector.SetConvergenceThreshold(0.001)
     
     if shrink_factor > 1:
