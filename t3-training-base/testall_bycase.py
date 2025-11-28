@@ -32,7 +32,7 @@ from model import AttentionUNet
 # ============================================================================
 CONFIG = {
     'model_path': 'models/best_model.pth',      # path to trained model
-    'test_data_path': 'test_cases',              # folder containing test cases
+    'test_data_path': '/mnt/d/AiiLAB_PROJECTS/DWI/NovEdition/dwi-t3-training/t3-training-base/validation_dataset',  # folder containing test cases
     'batch_size': 1,                             # process one at a time for real cases
     'device': 'cuda' if torch.cuda.is_available() else 'cpu',
     'output_base': 'test_results_bycase',        # base folder for results
@@ -363,15 +363,11 @@ def test_real_cases(model_path, dataloader, output_dir, device):
                 case_output_dir = output_dir / case_name
                 case_output_dir.mkdir(parents=True, exist_ok=True)
                 
-                # Save original image as PNG
-                original_png_path = case_output_dir / f"{filename}.png"
-                plt.imsave(original_png_path, img_slice, cmap='gray', format='png')
-                
-                # Save visualization with results
+                # Save visualization with original filename
                 save_realcase_image(
                     img_slice,
                     pred_mask,
-                    case_output_dir / f"{filename}_result.{CONFIG['image_format']}",
+                    case_output_dir / f"{filename}.{CONFIG['image_format']}",
                     stats=stats,
                     original_filename=filename
                 )
