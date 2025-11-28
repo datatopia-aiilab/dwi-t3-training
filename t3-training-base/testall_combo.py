@@ -231,6 +231,38 @@ def load_all_data():
 
 # ==================== Testing with 2 Models ====================
 
+def convert_2_5d_to_rgb(images_2_5d):
+    """
+    Convert 2.5D images (N, 3, H, W) to RGB format for artifact model
+    Takes middle slice and normalizes to RGB range
+    
+    Args:
+        images_2_5d: Tensor (N, 3, H, W) - 2.5D normalized images
+    
+    Returns:
+        images_rgb: Tensor (N, 3, H, W) - RGB normalized images
+    """
+    # Use middle slice (channel 1) for all 3 RGB channels
+    # Denormalize from z-score to 0-1 range (approximate)
+    middle_slice = images_2_5d[:, 1:2, :, :]  # (N, 1, H, W)
+    
+    # Simple normalization to [0, 1] range
+    min_val = middle_slice.min()
+    max_val = middle_slice.max()
+    normalized = (middle_slice - min_val) / (max_val - min_val + 1e-8)
+    
+    # Repeat for 3 channels
+    rgb_image = normalized.repeat(1, 3, 1, 1)  # (N, 3, H, W)
+    
+    # Normalize to ImageNet stats (for artifact model)
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(rgb_image.device)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(rgb_image.device)
+    
+    rgb_normalized = (rgb_image - mean) / std
+    
+    return rgb_normalized
+
+
 def test_combo(lesion_model_path, artifact_model_path, dataloader, output_dir, device):
     """
     Run inference with both models and refine lesion predictions
@@ -283,14 +315,16 @@ def test_combo(lesion_model_path, artifact_model_path, dataloader, output_dir, d
     
     with torch.no_grad():
         for idx, (images, masks, filenames) in enumerate(tqdm(dataloader, desc="Testing")):
-            images = images.to(device)
+            images = images.to(device)  # (B, 3, H, W) - 2.5D for lesion
             masks = masks.to(device)
             
-            # Get predictions from both models
+            # Lesion prediction: use 2.5D input directly
             lesion_outputs = lesion_model(images)
-            artifact_outputs = artifact_model(images)
-            
             lesion_preds = (lesion_outputs > 0.5).float()
+            
+            # Artifact prediction: convert 2.5D to RGB format
+            images_rgb = convert_2_5d_to_rgb(images)
+            artifact_outputs = artifact_model(images_rgb)
             artifact_preds = (artifact_outputs > 0.5).float()
             
             # Process each item in batch
