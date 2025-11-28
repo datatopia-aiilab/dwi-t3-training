@@ -96,6 +96,12 @@ def apply_n4_bias_correction(img_data, shrink_factor=4, num_iterations=[50, 50, 
     # Convert to SimpleITK image
     img_sitk = sitk.GetImageFromArray(img_data.astype(np.float32))
     
+    # Set proper spacing to avoid zero-valued spacing error
+    if is_2d:
+        img_sitk.SetSpacing([1.0, 1.0, 1.0])
+    else:
+        img_sitk.SetSpacing([1.0] * img_sitk.GetDimension())
+    
     # Create mask (entire image)
     mask_sitk = sitk.OtsuThreshold(img_sitk, 0, 1, 200)
     
@@ -108,6 +114,12 @@ def apply_n4_bias_correction(img_data, shrink_factor=4, num_iterations=[50, 50, 
         # Shrink image for faster processing
         img_shrunk = sitk.Shrink(img_sitk, [shrink_factor] * img_sitk.GetDimension())
         mask_shrunk = sitk.Shrink(mask_sitk, [shrink_factor] * mask_sitk.GetDimension())
+        
+        # Ensure proper spacing for shrunk images
+        original_spacing = img_sitk.GetSpacing()
+        new_spacing = [s * shrink_factor for s in original_spacing]
+        img_shrunk.SetSpacing(new_spacing)
+        mask_shrunk.SetSpacing(new_spacing)
         
         # Run N4 on shrunk image
         corrected_shrunk = corrector.Execute(img_shrunk, mask_shrunk)
