@@ -24,14 +24,14 @@ OUT_CHANNELS = 1     # Binary segmentation
 BASE_CHANNELS = 64   # First conv layer channels
 
 # ==================== Training Parameters ====================
-EPOCHS = 100
-BATCH_SIZE = 16
+EPOCHS = 200
+BATCH_SIZE = 32
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 1e-5
 EARLY_STOP_PATIENCE = 20
 
 # ==================== Augmentation (Runtime Only) ====================
-USE_AUGMENTATION = False  # Master switch: True=Enable, False=Disable all augmentation
+USE_AUGMENTATION = True  # Master switch: True=Enable, False=Disable all augmentation
 
 # Augmentation parameters (only used if USE_AUGMENTATION=True)
 AUG_HFLIP_PROB = 0.3

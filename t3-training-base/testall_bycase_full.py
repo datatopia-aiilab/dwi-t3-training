@@ -39,8 +39,8 @@ from model import AttentionUNet
 CONFIG = {
     # Models
     'seg_model_path': 'models/best_model.pth',                                  # PyTorch segmentation model
-    'neg_pos_model_path': '/mnt/d/AiiLAB_PROJECTS/DWI/NovEdition/dwi-t3-training/t3-training-base/models_cls/model_neg_pos.h5',     # TensorFlow Neg/Pos
-    'artifact_model_path': '/mnt/d/AiiLAB_PROJECTS/DWI/NovEdition/dwi-t3-training/t3-training-base/models_cls/model_artifact.h5',   # TensorFlow Artifact
+    'neg_pos_model_path': '/Users/Sribilone/AiiLAB/_datatopia/DWI/NovEdition/dwi_/models/model_neg_pos.h5',     # TensorFlow Neg/Pos
+    'artifact_model_path': '/Users/Sribilone/AiiLAB/_datatopia/DWI/NovEdition/dwi_/models/model_artifact.h5',   # TensorFlow Artifact
     
     # Classification Options
     'use_neg_pos': True,      # Enable Neg/Pos classification
