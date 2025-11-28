@@ -88,57 +88,49 @@ def apply_n4_bias_correction(img_data, shrink_factor=4, num_iterations=[50, 50, 
         print("⚠️  SimpleITK not available, returning original image")
         return img_data
     
-    # Handle 2D or 3D
-    is_2d = (img_data.ndim == 2)
-    if is_2d:
-        img_data = img_data[:, :, np.newaxis]
-    
-    # Convert to SimpleITK image
-    img_sitk = sitk.GetImageFromArray(img_data.astype(np.float32))
-    
-    # Set proper spacing to avoid zero-valued spacing error
-    if is_2d:
-        img_sitk.SetSpacing([1.0, 1.0, 1.0])
-    else:
+    try:
+        # Handle 2D or 3D
+        is_2d = (img_data.ndim == 2)
+        if is_2d:
+            img_data = img_data[:, :, np.newaxis]
+        
+        # Convert to SimpleITK image
+        img_sitk = sitk.GetImageFromArray(img_data.astype(np.float32))
+        
+        # Set proper spacing to avoid zero-valued spacing error
         img_sitk.SetSpacing([1.0] * img_sitk.GetDimension())
-    
-    # Create mask (entire image)
-    mask_sitk = sitk.OtsuThreshold(img_sitk, 0, 1, 200)
-    
-    # Setup N4 corrector
-    corrector = sitk.N4BiasFieldCorrectionImageFilter()
-    corrector.SetMaximumNumberOfIterations(num_iterations)
-    corrector.SetConvergenceThreshold(0.001)
-    
-    if shrink_factor > 1:
-        # Shrink image for faster processing
-        img_shrunk = sitk.Shrink(img_sitk, [shrink_factor] * img_sitk.GetDimension())
-        mask_shrunk = sitk.Shrink(mask_sitk, [shrink_factor] * mask_sitk.GetDimension())
         
-        # Ensure proper spacing for shrunk images
-        original_spacing = img_sitk.GetSpacing()
-        new_spacing = [s * shrink_factor for s in original_spacing]
-        img_shrunk.SetSpacing(new_spacing)
-        mask_shrunk.SetSpacing(new_spacing)
+        # Create mask using simple thresholding (avoid Otsu which can fail)
+        # Just use the entire image as mask
+        mask_arr = (img_data > 0).astype(np.uint8)
+        mask_sitk = sitk.GetImageFromArray(mask_arr)
+        mask_sitk.SetSpacing([1.0] * mask_sitk.GetDimension())
+        mask_sitk.SetOrigin(img_sitk.GetOrigin())
+        mask_sitk.SetDirection(img_sitk.GetDirection())
         
-        # Run N4 on shrunk image
-        corrected_shrunk = corrector.Execute(img_shrunk, mask_shrunk)
+        # Setup N4 corrector with fewer iterations for speed
+        corrector = sitk.N4BiasFieldCorrectionImageFilter()
+        corrector.SetMaximumNumberOfIterations([25, 25, 25])  # Reduced for speed
+        corrector.SetConvergenceThreshold(0.001)
         
-        # Get bias field and resample to original size
-        log_bias_field = corrector.GetLogBiasFieldAsImage(img_sitk)
-        corrected_sitk = img_sitk / sitk.Exp(log_bias_field)
-    else:
-        # Run N4 on full resolution
+        # Run N4 on full resolution (simpler and more reliable)
         corrected_sitk = corrector.Execute(img_sitk, mask_sitk)
-    
-    # Convert back to numpy
-    corrected_img = sitk.GetArrayFromImage(corrected_sitk)
-    
-    # Return to original shape
-    if is_2d:
-        corrected_img = corrected_img[:, :, 0]
-    
-    return corrected_img
+        
+        # Convert back to numpy
+        corrected_img = sitk.GetArrayFromImage(corrected_sitk)
+        
+        # Return to original shape
+        if is_2d:
+            corrected_img = corrected_img[:, :, 0]
+        
+        return corrected_img
+        
+    except Exception as e:
+        print(f"⚠️  N4 correction failed: {e}")
+        print("   Returning original image...")
+        if is_2d and img_data.ndim == 3:
+            return img_data[:, :, 0]
+        return img_data
 
 
 # ==================== CLAHE ====================
