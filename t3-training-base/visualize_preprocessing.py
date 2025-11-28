@@ -135,7 +135,7 @@ def apply_n4_bias_correction(img_data, shrink_factor=4, num_iterations=[50, 50, 
 
 # ==================== CLAHE ====================
 
-def apply_clahe(img_data, clip_limit=2.0, tile_grid_size=(8, 8)):
+def apply_clahe_enhancement(img_data, clip_limit=2.0, tile_grid_size=(8, 8)):
     """
     Apply Contrast Limited Adaptive Histogram Equalization
     
@@ -224,7 +224,7 @@ def preprocess_image(img_slice, apply_n4=True, apply_clahe=False, norm_method='z
     
     # Step 3: CLAHE (optional)
     if apply_clahe:
-        img_clahe = apply_clahe(
+        img_clahe = apply_clahe_enhancement(
             steps['n4'],
             clip_limit=VIS_CONFIG['clahe_clip_limit'],
             tile_grid_size=VIS_CONFIG['clahe_tile_grid_size']
