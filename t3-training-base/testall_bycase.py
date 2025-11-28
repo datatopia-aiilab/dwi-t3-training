@@ -31,7 +31,7 @@ from model import AttentionUNet
 # CONFIGURATION - กำหนดค่าที่นี่
 # ============================================================================
 CONFIG = {
-    'model_path': 'models/best_model.pth',      # path to trained model
+    'model_path': 'models/best_1/best_model.pth',      # path to trained model
     'test_data_path': '/mnt/d/AiiLAB_PROJECTS/DWI/NovEdition/dwi-t3-training/t3-training-base/validation_dataset',  # folder containing test cases
     'batch_size': 1,                             # process one at a time for real cases
     'device': 'cuda' if torch.cuda.is_available() else 'cpu',
