@@ -35,7 +35,7 @@ from model import AttentionUNet
 CONFIG = {
     # Model paths
     'lesion_model_path': 'models/best_model.pth',           # Model สำหรับตรวจ lesion
-    'artifact_model_path': '../t3-artf-base/models/best_model.pth',  # Model สำหรับตรวจ artifact
+    'artifact_model_path': 'models_artf/best_model.pth',    # Model สำหรับตรวจ artifact
     
     # Data settings
     'batch_size': 4,
